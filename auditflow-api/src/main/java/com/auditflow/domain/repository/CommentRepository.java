@@ -8,5 +8,5 @@ import java.util.UUID;
 
 public interface CommentRepository extends JpaRepository<Comment, UUID> {
 
-    List<Comment> findAllByPbcItemIdAndTenantId(UUID pbcItemId, UUID tenantId);
+    List<Comment> findAllByPbcItemIdAndTenantIdOrderByCriadoEmAsc(UUID pbcItemId, UUID tenantId);
 }

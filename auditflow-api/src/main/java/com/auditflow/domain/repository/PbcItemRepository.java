@@ -10,5 +10,7 @@ public interface PbcItemRepository extends JpaRepository<PbcItem, UUID> {
 
     List<PbcItem> findAllByCycleIdAndTenantId(UUID cycleId, UUID tenantId);
 
+    List<PbcItem> findAllByCycleIdAndTenantIdAndResponsavelId(UUID cycleId, UUID tenantId, UUID responsavelId);
+
     List<PbcItem> findAllByResponsavelIdAndTenantId(UUID responsavelId, UUID tenantId);
 }

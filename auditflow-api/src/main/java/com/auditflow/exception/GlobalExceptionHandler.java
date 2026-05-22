@@ -21,7 +21,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ErrorResponse.builder()
                         .status(404)
-                        .message(ex.getMessage())
+                        .erro(ex.getMessage())
                         .timestamp(LocalDateTime.now())
                         .build());
     }
@@ -31,7 +31,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ErrorResponse.builder()
                         .status(403)
-                        .message("Acesso negado")
+                        .erro(ex.getMessage())
+                        .timestamp(LocalDateTime.now())
+                        .build());
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ErrorResponse.builder()
+                        .status(400)
+                        .erro(ex.getMessage())
                         .timestamp(LocalDateTime.now())
                         .build());
     }
@@ -52,7 +62,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ErrorResponse.builder()
                         .status(500)
-                        .message("Erro interno do servidor")
+                        .erro("Erro interno do servidor")
                         .timestamp(LocalDateTime.now())
                         .build());
     }
