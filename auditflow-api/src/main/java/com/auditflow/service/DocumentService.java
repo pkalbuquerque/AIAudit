@@ -2,6 +2,8 @@ package com.auditflow.service;
 
 import com.auditflow.domain.entity.Document;
 import com.auditflow.domain.entity.PbcItem;
+import com.auditflow.domain.entity.User;
+import com.auditflow.domain.enums.Perfil;
 import com.auditflow.domain.enums.PbcItemStatus;
 import com.auditflow.domain.repository.DocumentRepository;
 import com.auditflow.domain.repository.PbcItemRepository;
@@ -30,18 +32,23 @@ public class DocumentService {
     @Transactional
     public DocumentResponse upload(UUID pbcItemId, MultipartFile file) {
         UUID tenantId = TenantContext.getTenantId();
-        UUID currentUserId = SecurityUtils.getCurrentUser().getId();
+        User currentUser = SecurityUtils.getCurrentUser();
 
         PbcItem item = pbcItemRepository.findById(pbcItemId)
                 .filter(i -> i.getTenantId().equals(tenantId))
                 .orElseThrow(() -> new EntityNotFoundException("Item PBC não encontrado"));
+
+        if (currentUser.getPerfil() == Perfil.CLIENTE
+                && !item.getResponsavelId().equals(currentUser.getId())) {
+            throw new EntityNotFoundException("Item PBC não encontrado");
+        }
 
         String storagePath = storageService.store(file, tenantId, item.getCycleId());
 
         Document document = Document.builder()
                 .tenantId(tenantId)
                 .pbcItemId(pbcItemId)
-                .enviadoPor(currentUserId)
+                .enviadoPor(currentUser.getId())
                 .storagePath(storagePath)
                 .nomeArquivo(file.getOriginalFilename())
                 .build();
@@ -55,10 +62,16 @@ public class DocumentService {
 
     public List<DocumentResponse> findAll(UUID pbcItemId) {
         UUID tenantId = TenantContext.getTenantId();
+        User currentUser = SecurityUtils.getCurrentUser();
 
-        pbcItemRepository.findById(pbcItemId)
+        PbcItem item = pbcItemRepository.findById(pbcItemId)
                 .filter(i -> i.getTenantId().equals(tenantId))
                 .orElseThrow(() -> new EntityNotFoundException("Item PBC não encontrado"));
+
+        if (currentUser.getPerfil() == Perfil.CLIENTE
+                && !item.getResponsavelId().equals(currentUser.getId())) {
+            throw new EntityNotFoundException("Item PBC não encontrado");
+        }
 
         return documentRepository.findAllByPbcItemIdAndTenantId(pbcItemId, tenantId)
                 .stream()
@@ -68,10 +81,17 @@ public class DocumentService {
 
     public Resource download(UUID documentId) {
         UUID tenantId = TenantContext.getTenantId();
+        User currentUser = SecurityUtils.getCurrentUser();
 
         Document document = documentRepository.findById(documentId)
                 .filter(d -> d.getTenantId().equals(tenantId))
                 .orElseThrow(() -> new EntityNotFoundException("Documento não encontrado"));
+
+        if (currentUser.getPerfil() == Perfil.CLIENTE) {
+            pbcItemRepository.findById(document.getPbcItemId())
+                    .filter(i -> i.getResponsavelId().equals(currentUser.getId()))
+                    .orElseThrow(() -> new EntityNotFoundException("Documento não encontrado"));
+        }
 
         return storageService.loadAsResource(document.getStoragePath());
     }

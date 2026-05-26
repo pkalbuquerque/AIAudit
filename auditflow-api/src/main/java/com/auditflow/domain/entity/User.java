@@ -44,6 +44,15 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private Perfil perfil;
 
+    @Column(name = "senha_provisoria", nullable = false)
+    private boolean senhaProvisoria;
+
+    @Column(name = "tentativas_login", nullable = false)
+    private int tentativasLogin;
+
+    @Column(name = "bloqueado_ate")
+    private LocalDateTime bloqueadoAte;
+
     @CreationTimestamp
     @Column(name = "criado_em", updatable = false)
     private LocalDateTime criadoEm;

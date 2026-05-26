@@ -46,19 +46,20 @@ public class AuditClientService {
                 .build();
         client = auditClientRepository.save(client);
 
-        String senhaProvisoria = UUID.randomUUID().toString().replace("-", "").substring(0, 10);
+        String senhaGerada = UUID.randomUUID().toString().replace("-", "").substring(0, 10);
 
         User clientUser = User.builder()
                 .tenantId(tenantId)
                 .auditClientId(client.getId())
                 .nome(request.getNomeUsuario())
                 .email(request.getEmail())
-                .senhaHash(passwordEncoder.encode(senhaProvisoria))
+                .senhaHash(passwordEncoder.encode(senhaGerada))
                 .perfil(Perfil.CLIENTE)
+                .senhaProvisoria(true)
                 .build();
         userRepository.save(clientUser);
 
-        return toResponse(client, senhaProvisoria);
+        return toResponse(client, senhaGerada);
     }
 
     public List<AuditClientResponse> findAll() {

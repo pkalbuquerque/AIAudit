@@ -1,5 +1,6 @@
 package com.auditflow.controller;
 
+import com.auditflow.dto.request.ChangePasswordRequest;
 import com.auditflow.dto.request.LoginRequest;
 import com.auditflow.dto.request.RegisterRequest;
 import com.auditflow.dto.response.AuthResponse;
@@ -28,5 +29,11 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody @Valid LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<Void> changePassword(@RequestBody @Valid ChangePasswordRequest request) {
+        authService.changePassword(request);
+        return ResponseEntity.noContent().build();
     }
 }

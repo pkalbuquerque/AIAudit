@@ -1,6 +1,9 @@
 package com.auditflow.service;
 
 import com.auditflow.domain.entity.Comment;
+import com.auditflow.domain.entity.PbcItem;
+import com.auditflow.domain.entity.User;
+import com.auditflow.domain.enums.Perfil;
 import com.auditflow.domain.repository.CommentRepository;
 import com.auditflow.domain.repository.PbcItemRepository;
 import com.auditflow.dto.request.CreateCommentRequest;
@@ -26,16 +29,21 @@ public class CommentService {
     @Transactional
     public CommentResponse create(UUID pbcItemId, CreateCommentRequest request) {
         UUID tenantId = TenantContext.getTenantId();
-        UUID autorId = SecurityUtils.getCurrentUser().getId();
+        User currentUser = SecurityUtils.getCurrentUser();
 
-        pbcItemRepository.findById(pbcItemId)
+        PbcItem pbcItem = pbcItemRepository.findById(pbcItemId)
                 .filter(i -> i.getTenantId().equals(tenantId))
                 .orElseThrow(() -> new EntityNotFoundException("Item PBC não encontrado"));
+
+        if (currentUser.getPerfil() == Perfil.CLIENTE
+                && !pbcItem.getResponsavelId().equals(currentUser.getId())) {
+            throw new EntityNotFoundException("Item PBC não encontrado");
+        }
 
         Comment comment = Comment.builder()
                 .tenantId(tenantId)
                 .pbcItemId(pbcItemId)
-                .autorId(autorId)
+                .autorId(currentUser.getId())
                 .texto(request.getTexto())
                 .build();
 
@@ -45,10 +53,16 @@ public class CommentService {
 
     public List<CommentResponse> findAll(UUID pbcItemId) {
         UUID tenantId = TenantContext.getTenantId();
+        User currentUser = SecurityUtils.getCurrentUser();
 
-        pbcItemRepository.findById(pbcItemId)
+        PbcItem pbcItem = pbcItemRepository.findById(pbcItemId)
                 .filter(i -> i.getTenantId().equals(tenantId))
                 .orElseThrow(() -> new EntityNotFoundException("Item PBC não encontrado"));
+
+        if (currentUser.getPerfil() == Perfil.CLIENTE
+                && !pbcItem.getResponsavelId().equals(currentUser.getId())) {
+            throw new EntityNotFoundException("Item PBC não encontrado");
+        }
 
         return commentRepository.findAllByPbcItemIdAndTenantIdOrderByCriadoEmAsc(pbcItemId, tenantId)
                 .stream()

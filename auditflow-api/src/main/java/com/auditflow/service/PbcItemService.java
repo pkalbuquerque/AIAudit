@@ -6,6 +6,7 @@ import com.auditflow.domain.enums.Perfil;
 import com.auditflow.domain.enums.PbcItemStatus;
 import com.auditflow.domain.repository.AuditCycleRepository;
 import com.auditflow.domain.repository.PbcItemRepository;
+import com.auditflow.domain.repository.UserRepository;
 import com.auditflow.dto.request.CreatePbcItemRequest;
 import com.auditflow.dto.request.UpdatePbcItemStatusRequest;
 import com.auditflow.dto.response.PbcItemResponse;
@@ -27,6 +28,7 @@ public class PbcItemService {
 
     private final PbcItemRepository pbcItemRepository;
     private final AuditCycleRepository auditCycleRepository;
+    private final UserRepository userRepository;
 
     @Transactional
     public PbcItemResponse create(UUID cycleId, CreatePbcItemRequest request) {
@@ -35,6 +37,10 @@ public class PbcItemService {
         auditCycleRepository.findById(cycleId)
                 .filter(c -> c.getTenantId().equals(tenantId))
                 .orElseThrow(() -> new EntityNotFoundException("Ciclo não encontrado"));
+
+        userRepository.findById(request.getResponsavelId())
+                .filter(u -> u.getTenantId().equals(tenantId) && u.getPerfil() == Perfil.CLIENTE)
+                .orElseThrow(() -> new IllegalArgumentException("Responsável inválido ou não é um CLIENTE deste tenant"));
 
         PbcItem item = PbcItem.builder()
                 .tenantId(tenantId)
@@ -71,9 +77,17 @@ public class PbcItemService {
 
     public PbcItemResponse findById(UUID id) {
         UUID tenantId = TenantContext.getTenantId();
+        User currentUser = SecurityUtils.getCurrentUser();
+
         PbcItem item = pbcItemRepository.findById(id)
                 .filter(i -> i.getTenantId().equals(tenantId))
                 .orElseThrow(() -> new EntityNotFoundException("Item PBC não encontrado"));
+
+        if (currentUser.getPerfil() == Perfil.CLIENTE
+                && !item.getResponsavelId().equals(currentUser.getId())) {
+            throw new EntityNotFoundException("Item PBC não encontrado");
+        }
+
         return toResponse(item);
     }
 
@@ -93,6 +107,9 @@ public class PbcItemService {
             case ENVIADO -> {
                 if (perfil != Perfil.CLIENTE) {
                     throw new AccessDeniedException("Apenas CLIENTE pode marcar um item como ENVIADO");
+                }
+                if (!item.getResponsavelId().equals(currentUser.getId())) {
+                    throw new AccessDeniedException("CLIENTE não pode alterar itens de outros clientes");
                 }
                 if (item.getStatus() != PbcItemStatus.PENDENTE && item.getStatus() != PbcItemStatus.REJEITADO) {
                     throw new IllegalArgumentException(
