@@ -2,14 +2,21 @@ package com.auditflow.service;
 
 import com.auditflow.domain.entity.AuditClient;
 import com.auditflow.domain.entity.User;
+import com.auditflow.domain.enums.CycleStatus;
 import com.auditflow.domain.enums.Perfil;
 import com.auditflow.domain.repository.AuditClientRepository;
+import com.auditflow.domain.repository.AuditCycleRepository;
 import com.auditflow.domain.repository.UserRepository;
+import com.auditflow.dto.request.AssignAuditorRequest;
 import com.auditflow.dto.request.CreateAuditClientRequest;
 import com.auditflow.dto.request.UpdateAuditClientRequest;
 import com.auditflow.dto.response.AuditClientResponse;
+import com.auditflow.dto.response.UserResponse;
+import com.auditflow.exception.DuplicateCnpjException;
+import com.auditflow.exception.DuplicateEmailException;
+import com.auditflow.exception.ResourceNotFoundException;
+import com.auditflow.security.SecurityUtils;
 import com.auditflow.security.TenantContext;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -24,25 +31,30 @@ import java.util.stream.Collectors;
 public class AuditClientService {
 
     private final AuditClientRepository auditClientRepository;
+    private final AuditCycleRepository auditCycleRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final UserService userService;
 
     @Transactional
     public AuditClientResponse create(CreateAuditClientRequest request) {
         UUID tenantId = TenantContext.getTenantId();
 
         if (auditClientRepository.findByCnpjAndTenantId(request.getCnpj(), tenantId).isPresent()) {
-            throw new IllegalArgumentException("CNPJ já cadastrado para este tenant");
+            throw new DuplicateCnpjException("CNPJ já cadastrado para este tenant");
         }
 
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-            throw new IllegalArgumentException("E-mail já cadastrado no sistema");
+            throw new DuplicateEmailException("E-mail já cadastrado no sistema");
         }
 
         AuditClient client = AuditClient.builder()
                 .tenantId(tenantId)
                 .nomeEmpresa(request.getNomeEmpresa())
                 .cnpj(request.getCnpj())
+                .segmento(request.getSegmento())
+                .site(request.getSite())
+                .endereco(request.getEndereco())
                 .build();
         client = auditClientRepository.save(client);
 
@@ -64,8 +76,16 @@ public class AuditClientService {
 
     public List<AuditClientResponse> findAll() {
         UUID tenantId = TenantContext.getTenantId();
-        return auditClientRepository.findAllByTenantId(tenantId)
-                .stream()
+        User currentUser = SecurityUtils.getCurrentUser();
+
+        List<AuditClient> clients;
+        if (currentUser.getPerfil() == Perfil.AUDITOR) {
+            clients = auditClientRepository.findAllByTenantIdAndAuditorResponsavelId(tenantId, currentUser.getId());
+        } else {
+            clients = auditClientRepository.findAllByTenantId(tenantId);
+        }
+
+        return clients.stream()
                 .map(c -> toResponse(c, null))
                 .collect(Collectors.toList());
     }
@@ -74,7 +94,7 @@ public class AuditClientService {
         UUID tenantId = TenantContext.getTenantId();
         AuditClient client = auditClientRepository.findById(id)
                 .filter(c -> c.getTenantId().equals(tenantId))
-                .orElseThrow(() -> new EntityNotFoundException("Cliente não encontrado"));
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente não encontrado"));
         return toResponse(client, null);
     }
 
@@ -83,27 +103,67 @@ public class AuditClientService {
         UUID tenantId = TenantContext.getTenantId();
         AuditClient client = auditClientRepository.findById(id)
                 .filter(c -> c.getTenantId().equals(tenantId))
-                .orElseThrow(() -> new EntityNotFoundException("Cliente não encontrado"));
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente não encontrado"));
 
         if (!client.getCnpj().equals(request.getCnpj())) {
             auditClientRepository.findByCnpjAndTenantId(request.getCnpj(), tenantId)
                     .ifPresent(existing -> {
-                        throw new IllegalArgumentException("CNPJ já cadastrado para este tenant");
+                        throw new DuplicateCnpjException("CNPJ já cadastrado para este tenant");
                     });
         }
 
         client.setNomeEmpresa(request.getNomeEmpresa());
         client.setCnpj(request.getCnpj());
+        client.setSegmento(request.getSegmento());
+        client.setSite(request.getSite());
+        client.setEmailContato(request.getEmailContato());
+        client.setEndereco(request.getEndereco());
+        client = auditClientRepository.save(client);
+        return toResponse(client, null);
+    }
+
+    @Transactional
+    public AuditClientResponse assignAuditor(UUID id, AssignAuditorRequest request) {
+        UUID tenantId = TenantContext.getTenantId();
+        AuditClient client = auditClientRepository.findById(id)
+                .filter(c -> c.getTenantId().equals(tenantId))
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente não encontrado"));
+
+        userRepository.findById(request.getAuditorId())
+                .filter(u -> u.getTenantId().equals(tenantId) && u.getPerfil() == Perfil.AUDITOR)
+                .orElseThrow(() -> new IllegalArgumentException("Auditor inválido ou não pertence a este tenant"));
+
+        client.setAuditorResponsavelId(request.getAuditorId());
         client = auditClientRepository.save(client);
         return toResponse(client, null);
     }
 
     private AuditClientResponse toResponse(AuditClient client, String senhaProvisoria) {
+        UserResponse auditorResp = null;
+        if (client.getAuditorResponsavelId() != null) {
+            auditorResp = userRepository.findById(client.getAuditorResponsavelId())
+                    .map(userService::toResponse)
+                    .orElse(null);
+        }
+
+        long totalCiclos = auditCycleRepository.findAllByTenantIdAndAuditClientId(
+                client.getTenantId(), client.getId()).size();
+        long ciclosAtivos = auditCycleRepository.findAllByTenantIdAndAuditClientIdAndStatus(
+                client.getTenantId(), client.getId(), CycleStatus.EM_ANDAMENTO).size();
+
         return AuditClientResponse.builder()
                 .id(client.getId())
                 .tenantId(client.getTenantId())
                 .nomeEmpresa(client.getNomeEmpresa())
                 .cnpj(client.getCnpj())
+                .segmento(client.getSegmento())
+                .site(client.getSite())
+                .emailContato(client.getEmailContato())
+                .endereco(client.getEndereco())
+                .ativo(client.isAtivo())
+                .auditorResponsavel(auditorResp)
+                .totalCiclos(totalCiclos)
+                .ciclosAtivos(ciclosAtivos)
                 .criadoEm(client.getCriadoEm())
                 .senhaProvisoria(senhaProvisoria)
                 .build();

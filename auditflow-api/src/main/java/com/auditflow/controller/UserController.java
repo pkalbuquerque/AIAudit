@@ -1,6 +1,7 @@
 package com.auditflow.controller;
 
 import com.auditflow.dto.request.CreateUserRequest;
+import com.auditflow.dto.request.UserUpdateRequest;
 import com.auditflow.dto.response.UserResponse;
 import com.auditflow.service.UserService;
 import jakarta.validation.Valid;
@@ -20,10 +21,15 @@ public class UserController {
 
     private final UserService userService;
 
-    @PostMapping
+    @GetMapping("/me")
+    public ResponseEntity<UserResponse> me() {
+        return ResponseEntity.ok(userService.getCurrentUser());
+    }
+
+    @PostMapping("/invite")
     @PreAuthorize("hasAuthority('ADMIN')")
-    public ResponseEntity<UserResponse> create(@Valid @RequestBody CreateUserRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(userService.create(request));
+    public ResponseEntity<UserResponse> invite(@Valid @RequestBody CreateUserRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(userService.invite(request));
     }
 
     @GetMapping
@@ -36,5 +42,19 @@ public class UserController {
     @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<UserResponse> findById(@PathVariable UUID id) {
         return ResponseEntity.ok(userService.findById(id));
+    }
+
+    @PatchMapping("/{id}")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<UserResponse> update(@PathVariable UUID id,
+                                               @Valid @RequestBody UserUpdateRequest request) {
+        return ResponseEntity.ok(userService.update(id, request));
+    }
+
+    @PatchMapping("/{id}/deactivate")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<Void> deactivate(@PathVariable UUID id) {
+        userService.deactivate(id);
+        return ResponseEntity.noContent().build();
     }
 }

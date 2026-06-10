@@ -1,12 +1,15 @@
 package com.auditflow.domain.entity;
 
 import com.auditflow.domain.enums.PbcItemStatus;
+import com.auditflow.domain.enums.Prioridade;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -41,6 +44,16 @@ public class PbcItem {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PbcItemStatus status;
+
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private Prioridade prioridade = Prioridade.MEDIA;
+
+    @ElementCollection
+    @CollectionTable(name = "pbc_item_criterios", joinColumns = @JoinColumn(name = "pbc_item_id"))
+    @Column(name = "criterio")
+    @Builder.Default
+    private List<String> criteriosDeAceite = new ArrayList<>();
 
     @Column(name = "motivo_rejeicao")
     private String motivoRejeicao;

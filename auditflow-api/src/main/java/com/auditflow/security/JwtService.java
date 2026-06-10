@@ -4,6 +4,7 @@ import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
+import com.auditflow.exception.JwtAuthException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -37,7 +38,7 @@ public class JwtService {
                     .build()
                     .verify(token);
         } catch (JWTVerificationException e) {
-            throw new RuntimeException("Token JWT inválido ou expirado", e);
+            throw new JwtAuthException("Token JWT inválido ou expirado", e);
         }
     }
 

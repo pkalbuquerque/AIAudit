@@ -28,6 +28,9 @@ public class AuditLog {
     @Column(nullable = false)
     private String acao;
 
+    @Column(columnDefinition = "TEXT")
+    private String descricao;
+
     @Column(nullable = false)
     private String entidade;
 

@@ -9,4 +9,6 @@ public class UpdateCycleStatusRequest {
 
     @NotNull(message = "status é obrigatório")
     private CycleStatus status;
+
+    private Boolean forcar;
 }

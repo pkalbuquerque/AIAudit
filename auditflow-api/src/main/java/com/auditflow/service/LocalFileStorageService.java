@@ -1,5 +1,8 @@
 package com.auditflow.service;
 
+import com.auditflow.exception.FileAccessException;
+import com.auditflow.exception.FileStorageException;
+import com.auditflow.exception.InvalidFileException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -18,26 +21,40 @@ import java.util.UUID;
 @Service
 public class LocalFileStorageService implements StorageService {
 
-    private static final Set<String> ALLOWED_EXTENSIONS =
-            Set.of("pdf", "doc", "docx", "xls", "xlsx", "png", "jpg", "jpeg", "zip", "csv", "txt");
+    private static final Set<String> ALLOWED_MIME_TYPES = Set.of(
+            "application/pdf",
+            "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "text/csv",
+            "image/png",
+            "image/jpeg"
+    );
+
+    private static final long MAX_SIZE_BYTES = 20L * 1024 * 1024; // 20 MB
 
     @Value("${storage.upload-dir:./uploads}")
     private String uploadDir;
 
     @Override
     public String store(MultipartFile file, UUID tenantId, UUID cycleId) {
-        String originalFilename = file.getOriginalFilename();
-        if (originalFilename == null || originalFilename.isBlank()) {
-            throw new IllegalArgumentException("Nome de arquivo inválido");
+        if (file == null || file.isEmpty()) {
+            throw new InvalidFileException("Arquivo inválido ou vazio");
         }
 
-        int dotIndex = originalFilename.lastIndexOf('.');
-        if (dotIndex < 0) {
-            throw new IllegalArgumentException("Arquivo sem extensão não é permitido");
+        if (file.getSize() > MAX_SIZE_BYTES) {
+            throw new InvalidFileException("Arquivo excede o tamanho máximo permitido de 20 MB");
         }
-        String ext = originalFilename.substring(dotIndex + 1).toLowerCase();
-        if (!ALLOWED_EXTENSIONS.contains(ext)) {
-            throw new IllegalArgumentException("Tipo de arquivo não permitido: " + ext);
+
+        String contentType = file.getContentType();
+        if (contentType == null || !ALLOWED_MIME_TYPES.contains(contentType)) {
+            throw new InvalidFileException(
+                    "Tipo de arquivo não permitido: " + contentType +
+                    ". Permitidos: PDF, XLS, XLSX, CSV, PNG, JPG");
+        }
+
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || originalFilename.isBlank()) {
+            throw new InvalidFileException("Nome de arquivo inválido");
         }
 
         String safeFilename = UUID.randomUUID() + "_" + originalFilename.replaceAll("[^a-zA-Z0-9._-]", "_");
@@ -49,7 +66,7 @@ public class LocalFileStorageService implements StorageService {
             Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
             return targetPath.toString();
         } catch (IOException e) {
-            throw new RuntimeException("Falha ao salvar arquivo: " + e.getMessage(), e);
+            throw new FileStorageException("Falha ao salvar arquivo: " + e.getMessage(), e);
         }
     }
 
@@ -60,16 +77,16 @@ public class LocalFileStorageService implements StorageService {
             Path path = Paths.get(storagePath).toAbsolutePath().normalize();
 
             if (!path.startsWith(uploadRoot)) {
-                throw new IllegalArgumentException("Acesso negado ao arquivo");
+                throw new FileAccessException("Acesso negado ao arquivo");
             }
 
             Resource resource = new UrlResource(path.toUri());
             if (resource.exists() && resource.isReadable()) {
                 return resource;
             }
-            throw new IllegalArgumentException("Arquivo não encontrado ou ilegível");
+            throw new FileAccessException("Arquivo não encontrado ou ilegível");
         } catch (MalformedURLException e) {
-            throw new IllegalArgumentException("Caminho de arquivo inválido", e);
+            throw new FileAccessException("Caminho de arquivo inválido", e);
         }
     }
 }

@@ -4,9 +4,14 @@ import com.auditflow.domain.entity.User;
 import com.auditflow.domain.enums.Perfil;
 import com.auditflow.domain.repository.UserRepository;
 import com.auditflow.dto.request.CreateUserRequest;
+import com.auditflow.dto.request.UserUpdateRequest;
 import com.auditflow.dto.response.UserResponse;
+import com.auditflow.exception.DuplicateEmailException;
+import com.auditflow.exception.ForbiddenException;
+import com.auditflow.exception.InvalidOperationException;
+import com.auditflow.exception.ResourceNotFoundException;
+import com.auditflow.security.SecurityUtils;
 import com.auditflow.security.TenantContext;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -24,34 +29,40 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
-    public UserResponse create(CreateUserRequest request) {
+    public UserResponse invite(CreateUserRequest request) {
         UUID tenantId = TenantContext.getTenantId();
 
         if (request.getPerfil() == Perfil.CLIENTE) {
-            throw new IllegalArgumentException(
+            throw new InvalidOperationException(
                     "Perfil CLIENTE não pode ser criado por este endpoint. Use POST /api/clients.");
         }
 
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-            throw new IllegalArgumentException("E-mail já cadastrado no sistema.");
+            throw new DuplicateEmailException("E-mail já cadastrado no sistema.");
         }
+
+        String senhaGerada = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
 
         User user = User.builder()
                 .tenantId(tenantId)
                 .nome(request.getNome())
                 .email(request.getEmail())
-                .senhaHash(passwordEncoder.encode(request.getSenha()))
-                .perfil(request.getPerfil())
+                .senhaHash(passwordEncoder.encode(senhaGerada))
+                .perfil(request.getPerfil() != null ? request.getPerfil() : Perfil.AUDITOR)
+                .senhaProvisoria(true)
                 .build();
 
         user = userRepository.save(user);
-        return toResponse(user);
+        UserResponse response = toResponse(user);
+        response.setNome(user.getNome()); // ensure nome is set for response
+        return response;
     }
 
     public List<UserResponse> findAll() {
         UUID tenantId = TenantContext.getTenantId();
         return userRepository.findAllByTenantId(tenantId)
                 .stream()
+                .filter(u -> u.getPerfil() != Perfil.CLIENTE)
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
@@ -60,17 +71,55 @@ public class UserService {
         UUID tenantId = TenantContext.getTenantId();
         User user = userRepository.findById(id)
                 .filter(u -> u.getTenantId().equals(tenantId))
-                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado"));
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
         return toResponse(user);
     }
 
-    private UserResponse toResponse(User user) {
+    public UserResponse getCurrentUser() {
+        return toResponse(SecurityUtils.getCurrentUser());
+    }
+
+    @Transactional
+    public UserResponse update(UUID id, UserUpdateRequest request) {
+        UUID tenantId = TenantContext.getTenantId();
+        User user = userRepository.findById(id)
+                .filter(u -> u.getTenantId().equals(tenantId))
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
+
+        if (request.getPerfil() == Perfil.CLIENTE) {
+            throw new InvalidOperationException("Não é possível atribuir perfil CLIENTE por este endpoint.");
+        }
+
+        user.setNome(request.getNome());
+        user.setPerfil(request.getPerfil());
+        return toResponse(userRepository.save(user));
+    }
+
+    @Transactional
+    public void deactivate(UUID id) {
+        UUID tenantId = TenantContext.getTenantId();
+        User currentUser = SecurityUtils.getCurrentUser();
+
+        if (currentUser.getId().equals(id)) {
+            throw new ForbiddenException("Você não pode desativar sua própria conta.");
+        }
+
+        User user = userRepository.findById(id)
+                .filter(u -> u.getTenantId().equals(tenantId))
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
+
+        user.setAtivo(false);
+        userRepository.save(user);
+    }
+
+    public UserResponse toResponse(User user) {
         return UserResponse.builder()
                 .id(user.getId())
                 .tenantId(user.getTenantId())
                 .nome(user.getNome())
                 .email(user.getEmail())
                 .perfil(user.getPerfil())
+                .ativo(user.isAtivo())
                 .criadoEm(user.getCriadoEm())
                 .build();
     }

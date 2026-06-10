@@ -44,6 +44,10 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private Perfil perfil;
 
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean ativo = true;
+
     @Column(name = "senha_provisoria", nullable = false)
     private boolean senhaProvisoria;
 
@@ -89,6 +93,6 @@ public class User implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return true;
+        return ativo;
     }
 }

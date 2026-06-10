@@ -1,6 +1,7 @@
 package com.auditflow.security;
 
 import com.auditflow.domain.entity.User;
+import com.auditflow.exception.UnauthorizedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 public final class SecurityUtils {
@@ -12,6 +13,6 @@ public final class SecurityUtils {
         if (principal instanceof User user) {
             return user;
         }
-        throw new IllegalStateException("Usuário não autenticado");
+        throw new UnauthorizedException("Usuário não autenticado");
     }
 }

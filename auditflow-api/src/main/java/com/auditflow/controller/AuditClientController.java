@@ -1,5 +1,6 @@
 package com.auditflow.controller;
 
+import com.auditflow.dto.request.AssignAuditorRequest;
 import com.auditflow.dto.request.CreateAuditClientRequest;
 import com.auditflow.dto.request.UpdateAuditClientRequest;
 import com.auditflow.dto.response.AuditClientResponse;
@@ -22,25 +23,34 @@ public class AuditClientController {
     private final AuditClientService auditClientService;
 
     @PostMapping
-    @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('AUDITOR')")
+    @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<AuditClientResponse> create(@Valid @RequestBody CreateAuditClientRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(auditClientService.create(request));
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('AUDITOR')")
     public ResponseEntity<List<AuditClientResponse>> findAll() {
         return ResponseEntity.ok(auditClientService.findAll());
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('AUDITOR')")
     public ResponseEntity<AuditClientResponse> findById(@PathVariable UUID id) {
         return ResponseEntity.ok(auditClientService.findById(id));
     }
 
-    @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('AUDITOR')")
+    @PatchMapping("/{id}")
+    @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<AuditClientResponse> update(@PathVariable UUID id,
                                                       @Valid @RequestBody UpdateAuditClientRequest request) {
         return ResponseEntity.ok(auditClientService.update(id, request));
+    }
+
+    @PostMapping("/{id}/assign")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<AuditClientResponse> assignAuditor(@PathVariable UUID id,
+                                                             @Valid @RequestBody AssignAuditorRequest request) {
+        return ResponseEntity.ok(auditClientService.assignAuditor(id, request));
     }
 }

@@ -11,4 +11,12 @@ public class UpdateAuditClientRequest {
 
     @NotBlank(message = "cnpj é obrigatório")
     private String cnpj;
+
+    private String segmento;
+
+    private String site;
+
+    private String emailContato;
+
+    private String endereco;
 }

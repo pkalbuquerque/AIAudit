@@ -4,6 +4,7 @@ import com.auditflow.domain.enums.CycleStatus;
 import lombok.Builder;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -16,6 +17,11 @@ public class AuditCycleResponse {
     private UUID auditClientId;
     private UUID auditorId;
     private String titulo;
+    private String tipo;
+    private String descricao;
+    private LocalDate dataInicio;
+    private LocalDate dataFim;
     private CycleStatus status;
+    private Double progressoPercent;
     private LocalDateTime criadoEm;
 }

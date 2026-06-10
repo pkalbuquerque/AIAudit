@@ -13,6 +13,12 @@ public class CreateAuditClientRequest {
     @NotBlank(message = "cnpj é obrigatório")
     private String cnpj;
 
+    private String segmento;
+
+    private String site;
+
+    private String endereco;
+
     @NotBlank(message = "nomeUsuario é obrigatório")
     private String nomeUsuario;
 

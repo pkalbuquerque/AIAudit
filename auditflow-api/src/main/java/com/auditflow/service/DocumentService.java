@@ -4,10 +4,11 @@ import com.auditflow.domain.entity.Document;
 import com.auditflow.domain.entity.PbcItem;
 import com.auditflow.domain.entity.User;
 import com.auditflow.domain.enums.Perfil;
-import com.auditflow.domain.enums.PbcItemStatus;
+import com.auditflow.domain.repository.AuditCycleRepository;
 import com.auditflow.domain.repository.DocumentRepository;
 import com.auditflow.domain.repository.PbcItemRepository;
 import com.auditflow.dto.response.DocumentResponse;
+import com.auditflow.exception.ResourceNotFoundException;
 import com.auditflow.security.SecurityUtils;
 import com.auditflow.security.TenantContext;
 import jakarta.persistence.EntityNotFoundException;
@@ -27,6 +28,7 @@ public class DocumentService {
 
     private final DocumentRepository documentRepository;
     private final PbcItemRepository pbcItemRepository;
+    private final AuditCycleRepository auditCycleRepository;
     private final StorageService storageService;
 
     @Transactional
@@ -36,14 +38,16 @@ public class DocumentService {
 
         PbcItem item = pbcItemRepository.findById(pbcItemId)
                 .filter(i -> i.getTenantId().equals(tenantId))
-                .orElseThrow(() -> new EntityNotFoundException("Item PBC não encontrado"));
+                .orElseThrow(() -> new ResourceNotFoundException("Item PBC não encontrado"));
 
         if (currentUser.getPerfil() == Perfil.CLIENTE
                 && !item.getResponsavelId().equals(currentUser.getId())) {
-            throw new EntityNotFoundException("Item PBC não encontrado");
+            throw new ResourceNotFoundException("Item PBC não encontrado");
         }
 
-        String storagePath = storageService.store(file, tenantId, item.getCycleId());
+        var cycle = auditCycleRepository.findById(item.getCycleId())
+                .orElseThrow(() -> new ResourceNotFoundException("Ciclo não encontrado"));
+        String storagePath = storageService.store(file, tenantId, cycle.getId());
 
         Document document = Document.builder()
                 .tenantId(tenantId)
@@ -52,12 +56,7 @@ public class DocumentService {
                 .storagePath(storagePath)
                 .nomeArquivo(file.getOriginalFilename())
                 .build();
-        document = documentRepository.save(document);
-
-        item.setStatus(PbcItemStatus.ENVIADO);
-        pbcItemRepository.save(item);
-
-        return toResponse(document);
+        return toResponse(documentRepository.save(document));
     }
 
     public List<DocumentResponse> findAll(UUID pbcItemId) {
@@ -66,11 +65,11 @@ public class DocumentService {
 
         PbcItem item = pbcItemRepository.findById(pbcItemId)
                 .filter(i -> i.getTenantId().equals(tenantId))
-                .orElseThrow(() -> new EntityNotFoundException("Item PBC não encontrado"));
+                .orElseThrow(() -> new ResourceNotFoundException("Item PBC não encontrado"));
 
         if (currentUser.getPerfil() == Perfil.CLIENTE
                 && !item.getResponsavelId().equals(currentUser.getId())) {
-            throw new EntityNotFoundException("Item PBC não encontrado");
+            throw new ResourceNotFoundException("Item PBC não encontrado");
         }
 
         return documentRepository.findAllByPbcItemIdAndTenantId(pbcItemId, tenantId)
@@ -85,12 +84,12 @@ public class DocumentService {
 
         Document document = documentRepository.findById(documentId)
                 .filter(d -> d.getTenantId().equals(tenantId))
-                .orElseThrow(() -> new EntityNotFoundException("Documento não encontrado"));
+                .orElseThrow(() -> new ResourceNotFoundException("Documento não encontrado"));
 
         if (currentUser.getPerfil() == Perfil.CLIENTE) {
             pbcItemRepository.findById(document.getPbcItemId())
                     .filter(i -> i.getResponsavelId().equals(currentUser.getId()))
-                    .orElseThrow(() -> new EntityNotFoundException("Documento não encontrado"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Documento não encontrado"));
         }
 
         return storageService.loadAsResource(document.getStoragePath());

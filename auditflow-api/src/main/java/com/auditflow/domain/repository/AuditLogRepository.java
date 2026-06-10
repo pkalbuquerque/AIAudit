@@ -9,4 +9,6 @@ import java.util.UUID;
 public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
 
     List<AuditLog> findAllByTenantId(UUID tenantId);
+
+    List<AuditLog> findAllByEntidadeIdAndTenantIdOrderByCriadoEmAsc(UUID entidadeId, UUID tenantId);
 }

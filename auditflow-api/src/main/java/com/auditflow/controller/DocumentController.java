@@ -1,7 +1,9 @@
 package com.auditflow.controller;
 
 import com.auditflow.dto.response.DocumentResponse;
+import com.auditflow.dto.response.PbcItemResponse;
 import com.auditflow.service.DocumentService;
+import com.auditflow.service.PbcItemService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
@@ -20,12 +22,14 @@ import java.util.UUID;
 public class DocumentController {
 
     private final DocumentService documentService;
+    private final PbcItemService pbcItemService;
 
+    // CLIENTE submits a document — triggers status transition to EM_REVISAO
     @PostMapping("/api/pbc/{pbcItemId}/documents")
     @PreAuthorize("hasAuthority('CLIENTE')")
-    public ResponseEntity<DocumentResponse> upload(@PathVariable UUID pbcItemId,
-                                                   @RequestParam("file") MultipartFile file) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(documentService.upload(pbcItemId, file));
+    public ResponseEntity<PbcItemResponse> upload(@PathVariable UUID pbcItemId,
+                                                  @RequestParam("file") MultipartFile file) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(pbcItemService.submit(pbcItemId, file));
     }
 
     @GetMapping("/api/pbc/{pbcItemId}/documents")

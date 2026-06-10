@@ -134,6 +134,7 @@ public class AuthService {
                 .nome(user.getNome())
                 .email(user.getEmail())
                 .perfil(user.getPerfil())
+                .ativo(user.isAtivo())
                 .criadoEm(user.getCriadoEm())
                 .build();
     }

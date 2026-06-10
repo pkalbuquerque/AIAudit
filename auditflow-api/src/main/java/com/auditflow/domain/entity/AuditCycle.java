@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -32,9 +33,23 @@ public class AuditCycle {
     @Column(nullable = false)
     private String titulo;
 
+    private String tipo;
+
+    @Column(columnDefinition = "TEXT")
+    private String descricao;
+
+    @Column(name = "data_inicio")
+    private LocalDate dataInicio;
+
+    @Column(name = "data_fim")
+    private LocalDate dataFim;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private CycleStatus status;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
     @CreationTimestamp
     @Column(name = "criado_em", updatable = false)

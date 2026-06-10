@@ -29,6 +29,7 @@ public class AuditCycleController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('AUDITOR')")
     public ResponseEntity<List<AuditCycleResponse>> findAll(
             @RequestParam(required = false) CycleStatus status,
             @RequestParam(required = false) UUID auditClientId) {
@@ -36,6 +37,7 @@ public class AuditCycleController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('AUDITOR')")
     public ResponseEntity<AuditCycleResponse> findById(@PathVariable UUID id) {
         return ResponseEntity.ok(auditCycleService.findById(id));
     }
@@ -45,5 +47,12 @@ public class AuditCycleController {
     public ResponseEntity<AuditCycleResponse> advanceStatus(@PathVariable UUID id,
                                                             @Valid @RequestBody UpdateCycleStatusRequest request) {
         return ResponseEntity.ok(auditCycleService.advanceStatus(id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<Void> delete(@PathVariable UUID id) {
+        auditCycleService.delete(id);
+        return ResponseEntity.noContent().build();
     }
 }

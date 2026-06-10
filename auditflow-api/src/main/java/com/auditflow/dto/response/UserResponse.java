@@ -20,5 +20,6 @@ public class UserResponse {
     private String nome;
     private String email;
     private Perfil perfil;
+    private boolean ativo;
     private LocalDateTime criadoEm;
 }

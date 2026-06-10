@@ -11,5 +11,7 @@ public interface AuditClientRepository extends JpaRepository<AuditClient, UUID> 
 
     List<AuditClient> findAllByTenantId(UUID tenantId);
 
+    List<AuditClient> findAllByTenantIdAndAuditorResponsavelId(UUID tenantId, UUID auditorResponsavelId);
+
     Optional<AuditClient> findByCnpjAndTenantId(String cnpj, UUID tenantId);
 }

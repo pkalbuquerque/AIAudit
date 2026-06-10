@@ -16,6 +16,14 @@ public class AuditClientResponse {
     private UUID tenantId;
     private String nomeEmpresa;
     private String cnpj;
+    private String segmento;
+    private String site;
+    private String emailContato;
+    private String endereco;
+    private boolean ativo;
+    private UserResponse auditorResponsavel;
+    private Long totalCiclos;
+    private Long ciclosAtivos;
     private LocalDateTime criadoEm;
 
     // Apenas retornado na criação — senha gerada automaticamente para o usuário CLIENTE
