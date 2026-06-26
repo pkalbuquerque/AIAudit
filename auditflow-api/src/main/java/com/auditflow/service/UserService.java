@@ -27,6 +27,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuditLogService auditLogService;
 
     @Transactional
     public UserResponse invite(CreateUserRequest request) {
@@ -53,8 +54,10 @@ public class UserService {
                 .build();
 
         user = userRepository.save(user);
+        auditLogService.record(tenantId, SecurityUtils.getCurrentUser().getId(), "AUDITOR_CONVIDADO",
+                "Usuário " + user.getNome() + " (" + user.getPerfil() + ") convidado", "User", user.getId());
         UserResponse response = toResponse(user);
-        response.setNome(user.getNome()); // ensure nome is set for response
+        response.setSenhaProvisoria(senhaGerada); // repassada ao convidado até o e-mail estar ativo
         return response;
     }
 
@@ -77,6 +80,13 @@ public class UserService {
 
     public UserResponse getCurrentUser() {
         return toResponse(SecurityUtils.getCurrentUser());
+    }
+
+    @Transactional
+    public UserResponse updateProfile(com.auditflow.dto.request.UpdateProfileRequest request) {
+        User user = SecurityUtils.getCurrentUser();
+        user.setNome(request.getNome());
+        return toResponse(userRepository.save(user));
     }
 
     @Transactional

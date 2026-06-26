@@ -25,6 +25,18 @@ public class Tenant {
     @Column(name = "email_contato", nullable = false)
     private String emailContato;
 
+    private String cnpj;
+
+    private String site;
+
+    private String endereco;
+
+    private String cidade;
+
+    private String estado;
+
+    private String cep;
+
     @CreationTimestamp
     @Column(name = "criado_em", updatable = false)
     private LocalDateTime criadoEm;

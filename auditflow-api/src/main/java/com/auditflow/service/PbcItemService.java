@@ -44,16 +44,17 @@ public class PbcItemService {
     private final DocumentRepository documentRepository;
     private final AuditLogRepository auditLogRepository;
     private final StorageService storageService;
+    private final NotificationService notificationService;
 
     @Transactional
     public PbcItemResponse create(UUID cycleId, CreatePbcItemRequest request) {
         UUID tenantId = TenantContext.getTenantId();
 
-        auditCycleRepository.findById(cycleId)
+        var cycle = auditCycleRepository.findById(cycleId)
                 .filter(c -> c.getTenantId().equals(tenantId) && c.getDeletedAt() == null)
                 .orElseThrow(() -> new ResourceNotFoundException("Ciclo não encontrado"));
 
-        userRepository.findById(request.getResponsavelId())
+        User dono = userRepository.findById(request.getResponsavelId())
                 .filter(u -> u.getTenantId().equals(tenantId) && u.getPerfil() == Perfil.CLIENTE)
                 .orElseThrow(() -> new InvalidOperationException("Responsável inválido ou não é um CLIENTE deste tenant"));
 
@@ -71,6 +72,7 @@ public class PbcItemService {
 
         item = pbcItemRepository.save(item);
         log(item, SecurityUtils.getCurrentUser(), "CRIADO", "Item PBC criado", tenantId);
+        notificationService.itemCriado(dono.getEmail(), dono.getNome(), item.getTitulo(), cycle.getTitulo());
         return toResponse(item);
     }
 
@@ -174,6 +176,9 @@ public class PbcItemService {
                 ? "Item aprovado. Comentário: " + request.getComentario()
                 : "Item aprovado.";
         log(item, currentUser, "APROVADO", descricao, tenantId);
+        String titulo = item.getTitulo();
+        notifyResponsavel(item.getResponsavelId(), (email, nome) ->
+                notificationService.itemAprovado(email, nome, titulo));
         return toResponse(item);
     }
 
@@ -203,7 +208,17 @@ public class PbcItemService {
         item = pbcItemRepository.save(item);
 
         log(item, currentUser, "REJEITADO", "Motivo: " + request.getMotivo(), tenantId);
+        String titulo = item.getTitulo();
+        String motivo = request.getMotivo();
+        notifyResponsavel(item.getResponsavelId(), (email, nome) ->
+                notificationService.itemRejeitado(email, nome, titulo, motivo));
         return toResponse(item);
+    }
+
+    /** Resolve o usuário responsável (CLIENTE) e dispara a notificação informada. */
+    private void notifyResponsavel(UUID responsavelId, java.util.function.BiConsumer<String, String> notifier) {
+        userRepository.findById(responsavelId)
+                .ifPresent(u -> notifier.accept(u.getEmail(), u.getNome()));
     }
 
     @Transactional

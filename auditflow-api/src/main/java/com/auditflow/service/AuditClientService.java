@@ -1,16 +1,22 @@
 package com.auditflow.service;
 
 import com.auditflow.domain.entity.AuditClient;
+import com.auditflow.domain.entity.AuditCycle;
+import com.auditflow.domain.entity.PbcItem;
 import com.auditflow.domain.entity.User;
 import com.auditflow.domain.enums.CycleStatus;
 import com.auditflow.domain.enums.Perfil;
 import com.auditflow.domain.repository.AuditClientRepository;
 import com.auditflow.domain.repository.AuditCycleRepository;
+import com.auditflow.domain.repository.DocumentRepository;
+import com.auditflow.domain.repository.PbcItemRepository;
 import com.auditflow.domain.repository.UserRepository;
 import com.auditflow.dto.request.AssignAuditorRequest;
 import com.auditflow.dto.request.CreateAuditClientRequest;
+import com.auditflow.dto.request.CreateClientUserRequest;
 import com.auditflow.dto.request.UpdateAuditClientRequest;
 import com.auditflow.dto.response.AuditClientResponse;
+import com.auditflow.dto.response.ClientDocumentResponse;
 import com.auditflow.dto.response.UserResponse;
 import com.auditflow.exception.DuplicateCnpjException;
 import com.auditflow.exception.DuplicateEmailException;
@@ -32,9 +38,12 @@ public class AuditClientService {
 
     private final AuditClientRepository auditClientRepository;
     private final AuditCycleRepository auditCycleRepository;
+    private final PbcItemRepository pbcItemRepository;
+    private final DocumentRepository documentRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserService userService;
+    private final AuditLogService auditLogService;
 
     @Transactional
     public AuditClientResponse create(CreateAuditClientRequest request) {
@@ -71,6 +80,8 @@ public class AuditClientService {
                 .build();
         userRepository.save(clientUser);
 
+        auditLogService.record(tenantId, SecurityUtils.getCurrentUser().getId(), "CLIENTE_CRIADO",
+                "Cliente " + client.getNomeEmpresa() + " criado", "AuditClient", client.getId());
         return toResponse(client, senhaGerada);
     }
 
@@ -96,6 +107,83 @@ public class AuditClientService {
                 .filter(c -> c.getTenantId().equals(tenantId))
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente não encontrado"));
         return toResponse(client, null);
+    }
+
+    /** Usuários CLIENTE (ativos) vinculados a este cliente — usados como
+        responsável (dono) ao criar itens PBC. Acessível a ADMIN e AUDITOR. */
+    public List<UserResponse> listClientUsers(UUID clientId) {
+        UUID tenantId = TenantContext.getTenantId();
+        AuditClient client = auditClientRepository.findById(clientId)
+                .filter(c -> c.getTenantId().equals(tenantId))
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente não encontrado"));
+
+        return userRepository.findAllByTenantIdAndAuditClientId(tenantId, client.getId())
+                .stream()
+                .filter(User::isAtivo)
+                .filter(u -> u.getPerfil() == Perfil.CLIENTE)
+                .map(userService::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    /** Cria um usuário CLIENTE adicional para o cliente; retorna a senha provisória. */
+    @Transactional
+    public UserResponse addClientUser(UUID clientId, CreateClientUserRequest request) {
+        UUID tenantId = TenantContext.getTenantId();
+        AuditClient client = auditClientRepository.findById(clientId)
+                .filter(c -> c.getTenantId().equals(tenantId))
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente não encontrado"));
+
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            throw new DuplicateEmailException("E-mail já cadastrado no sistema");
+        }
+
+        String senhaGerada = UUID.randomUUID().toString().replace("-", "").substring(0, 10);
+
+        User user = User.builder()
+                .tenantId(tenantId)
+                .auditClientId(client.getId())
+                .nome(request.getNome())
+                .email(request.getEmail())
+                .senhaHash(passwordEncoder.encode(senhaGerada))
+                .perfil(Perfil.CLIENTE)
+                .senhaProvisoria(true)
+                .build();
+        user = userRepository.save(user);
+
+        auditLogService.record(tenantId, SecurityUtils.getCurrentUser().getId(), "USUARIO_CLIENTE_CRIADO",
+                "Usuário " + user.getNome() + " adicionado ao cliente " + client.getNomeEmpresa(),
+                "User", user.getId());
+        UserResponse response = userService.toResponse(user);
+        response.setSenhaProvisoria(senhaGerada);
+        return response;
+    }
+
+    /** Todos os documentos enviados nos ciclos deste cliente, com contexto item/ciclo. */
+    public List<ClientDocumentResponse> listClientDocuments(UUID clientId) {
+        UUID tenantId = TenantContext.getTenantId();
+        AuditClient client = auditClientRepository.findById(clientId)
+                .filter(c -> c.getTenantId().equals(tenantId))
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente não encontrado"));
+
+        List<ClientDocumentResponse> docs = new java.util.ArrayList<>();
+        for (AuditCycle cycle : auditCycleRepository.findAllByTenantIdAndAuditClientId(tenantId, client.getId())) {
+            for (PbcItem item : pbcItemRepository.findAllByCycleIdAndTenantId(cycle.getId(), tenantId)) {
+                documentRepository.findAllByPbcItemIdAndTenantId(item.getId(), tenantId).forEach(doc ->
+                        docs.add(ClientDocumentResponse.builder()
+                                .id(doc.getId())
+                                .nomeArquivo(doc.getNomeArquivo())
+                                .cicloTitulo(cycle.getTitulo())
+                                .itemTitulo(item.getTitulo())
+                                .itemStatus(item.getStatus())
+                                .enviadoEm(doc.getCriadoEm())
+                                .build()));
+            }
+        }
+        docs.sort((a, b) -> {
+            if (a.getEnviadoEm() == null || b.getEnviadoEm() == null) return 0;
+            return b.getEnviadoEm().compareTo(a.getEnviadoEm());
+        });
+        return docs;
     }
 
     @Transactional
@@ -130,11 +218,14 @@ public class AuditClientService {
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente não encontrado"));
 
         userRepository.findById(request.getAuditorId())
-                .filter(u -> u.getTenantId().equals(tenantId) && u.getPerfil() == Perfil.AUDITOR)
+                .filter(u -> u.getTenantId().equals(tenantId)
+                        && (u.getPerfil() == Perfil.AUDITOR || u.getPerfil() == Perfil.ADMIN))
                 .orElseThrow(() -> new IllegalArgumentException("Auditor inválido ou não pertence a este tenant"));
 
         client.setAuditorResponsavelId(request.getAuditorId());
         client = auditClientRepository.save(client);
+        auditLogService.record(tenantId, SecurityUtils.getCurrentUser().getId(), "AUDITOR_ATRIBUIDO",
+                "Auditor atribuído ao cliente " + client.getNomeEmpresa(), "AuditClient", client.getId());
         return toResponse(client, null);
     }
 

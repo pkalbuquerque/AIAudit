@@ -2,8 +2,11 @@ package com.auditflow.controller;
 
 import com.auditflow.dto.request.AssignAuditorRequest;
 import com.auditflow.dto.request.CreateAuditClientRequest;
+import com.auditflow.dto.request.CreateClientUserRequest;
 import com.auditflow.dto.request.UpdateAuditClientRequest;
 import com.auditflow.dto.response.AuditClientResponse;
+import com.auditflow.dto.response.ClientDocumentResponse;
+import com.auditflow.dto.response.UserResponse;
 import com.auditflow.service.AuditClientService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +41,25 @@ public class AuditClientController {
     @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('AUDITOR')")
     public ResponseEntity<AuditClientResponse> findById(@PathVariable UUID id) {
         return ResponseEntity.ok(auditClientService.findById(id));
+    }
+
+    @GetMapping("/{id}/users")
+    @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('AUDITOR')")
+    public ResponseEntity<List<UserResponse>> clientUsers(@PathVariable UUID id) {
+        return ResponseEntity.ok(auditClientService.listClientUsers(id));
+    }
+
+    @PostMapping("/{id}/users")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<UserResponse> addClientUser(@PathVariable UUID id,
+                                                      @Valid @RequestBody CreateClientUserRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(auditClientService.addClientUser(id, request));
+    }
+
+    @GetMapping("/{id}/documents")
+    @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('AUDITOR')")
+    public ResponseEntity<List<ClientDocumentResponse>> clientDocuments(@PathVariable UUID id) {
+        return ResponseEntity.ok(auditClientService.listClientDocuments(id));
     }
 
     @PatchMapping("/{id}")

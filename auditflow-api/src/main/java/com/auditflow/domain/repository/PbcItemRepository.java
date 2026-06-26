@@ -52,4 +52,11 @@ public interface PbcItemRepository extends JpaRepository<PbcItem, UUID> {
     long countByCycleId(UUID cycleId);
 
     long countByCycleIdAndStatus(UUID cycleId, PbcItemStatus status);
+
+    /** Itens cuja entrega ainda depende do cliente (PENDENTE/REJEITADO) com prazo
+        até a data informada — base para lembretes de atraso/proximidade. */
+    @Query("SELECT p FROM PbcItem p WHERE p.prazo IS NOT NULL AND p.prazo <= :limite "
+            + "AND p.status IN (com.auditflow.domain.enums.PbcItemStatus.PENDENTE, "
+            + "com.auditflow.domain.enums.PbcItemStatus.REJEITADO)")
+    List<PbcItem> findPendentesComPrazoAte(@Param("limite") LocalDate limite);
 }

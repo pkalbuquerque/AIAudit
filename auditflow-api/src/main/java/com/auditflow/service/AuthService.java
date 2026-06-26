@@ -30,6 +30,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
+    private final AuditLogService auditLogService;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -49,6 +50,8 @@ public class AuthService {
         admin = userRepository.save(admin);
 
         log.info("Novo tenant registrado: {} | admin: {}", tenant.getNome(), admin.getEmail());
+        auditLogService.record(tenant.getId(), admin.getId(), "REGISTRO",
+                "Firma " + tenant.getNome() + " registrada", "Tenant", tenant.getId());
 
         String token = jwtService.generateToken(
                 admin.getEmail(),
@@ -95,6 +98,7 @@ public class AuthService {
         userRepository.save(user);
 
         log.info("Login bem-sucedido: {} | perfil: {}", user.getEmail(), user.getPerfil());
+        auditLogService.record(user.getTenantId(), user.getId(), "LOGIN", "Login realizado", "User", user.getId());
 
         String token = jwtService.generateToken(
                 user.getEmail(),

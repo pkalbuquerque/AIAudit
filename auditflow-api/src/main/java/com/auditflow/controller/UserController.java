@@ -1,6 +1,7 @@
 package com.auditflow.controller;
 
 import com.auditflow.dto.request.CreateUserRequest;
+import com.auditflow.dto.request.UpdateProfileRequest;
 import com.auditflow.dto.request.UserUpdateRequest;
 import com.auditflow.dto.response.UserResponse;
 import com.auditflow.service.UserService;
@@ -24,6 +25,11 @@ public class UserController {
     @GetMapping("/me")
     public ResponseEntity<UserResponse> me() {
         return ResponseEntity.ok(userService.getCurrentUser());
+    }
+
+    @PatchMapping("/me")
+    public ResponseEntity<UserResponse> updateMe(@Valid @RequestBody UpdateProfileRequest request) {
+        return ResponseEntity.ok(userService.updateProfile(request));
     }
 
     @PostMapping("/invite")

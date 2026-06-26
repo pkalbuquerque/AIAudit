@@ -32,6 +32,7 @@ public class AuditCycleService {
     private final AuditCycleRepository auditCycleRepository;
     private final AuditClientRepository auditClientRepository;
     private final PbcItemRepository pbcItemRepository;
+    private final AuditLogService auditLogService;
 
     @Transactional
     public AuditCycleResponse create(CreateAuditCycleRequest request) {
@@ -55,6 +56,8 @@ public class AuditCycleService {
                 .build();
 
         cycle = auditCycleRepository.save(cycle);
+        auditLogService.record(tenantId, auditorId, "PROJETO_CRIADO",
+                "Projeto \"" + cycle.getTitulo() + "\" criado", "AuditCycle", cycle.getId());
         return toResponse(cycle);
     }
 
@@ -132,6 +135,8 @@ public class AuditCycleService {
 
         cycle.setStatus(next);
         cycle = auditCycleRepository.save(cycle);
+        auditLogService.record(tenantId, currentUser.getId(), "PROJETO_STATUS",
+                "Projeto \"" + cycle.getTitulo() + "\" → " + next, "AuditCycle", cycle.getId());
         return toResponse(cycle);
     }
 

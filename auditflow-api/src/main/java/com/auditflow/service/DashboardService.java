@@ -4,17 +4,23 @@ import com.auditflow.domain.entity.User;
 import com.auditflow.domain.enums.CycleStatus;
 import com.auditflow.domain.enums.Perfil;
 import com.auditflow.domain.enums.PbcItemStatus;
+import com.auditflow.domain.repository.AuditClientRepository;
 import com.auditflow.domain.repository.AuditCycleRepository;
 import com.auditflow.domain.repository.PbcItemRepository;
+import com.auditflow.domain.repository.UserRepository;
+import com.auditflow.dto.response.AuditorLoadResponse;
 import com.auditflow.dto.response.DashboardResponse;
+import com.auditflow.exception.ForbiddenException;
 import com.auditflow.security.SecurityUtils;
 import com.auditflow.security.TenantContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -22,6 +28,8 @@ public class DashboardService {
 
     private final PbcItemRepository pbcItemRepository;
     private final AuditCycleRepository auditCycleRepository;
+    private final AuditClientRepository auditClientRepository;
+    private final UserRepository userRepository;
 
     public DashboardResponse getDashboard() {
         UUID tenantId = TenantContext.getTenantId();
@@ -89,5 +97,35 @@ public class DashboardService {
                         "REJEITADO", rejeitado
                 ))
                 .build();
+    }
+
+    /** Carga de trabalho por auditor da firma — somente ADMIN. */
+    public List<AuditorLoadResponse> getAuditorLoad() {
+        UUID tenantId = TenantContext.getTenantId();
+        User currentUser = SecurityUtils.getCurrentUser();
+        if (currentUser.getPerfil() != Perfil.ADMIN) {
+            throw new ForbiddenException("Apenas administradores podem ver a carga da equipe.");
+        }
+        LocalDate hoje = LocalDate.now();
+
+        return userRepository.findAllByTenantId(tenantId).stream()
+                .filter(u -> u.getPerfil() == Perfil.AUDITOR || u.getPerfil() == Perfil.ADMIN)
+                .map(u -> AuditorLoadResponse.builder()
+                        .auditorId(u.getId())
+                        .nome(u.getNome())
+                        .email(u.getEmail())
+                        .perfil(u.getPerfil())
+                        .ativo(u.isAtivo())
+                        .clientes(auditClientRepository
+                                .findAllByTenantIdAndAuditorResponsavelId(tenantId, u.getId()).size())
+                        .ciclosAtivos(auditCycleRepository
+                                .countByTenantIdAndAuditorIdAndStatusAndDeletedAtIsNull(
+                                        tenantId, u.getId(), CycleStatus.EM_ANDAMENTO))
+                        .pendentesRevisao(pbcItemRepository
+                                .countByAuditorAndStatus(u.getId(), tenantId, PbcItemStatus.EM_REVISAO))
+                        .atrasados(pbcItemRepository
+                                .countOverdueByAuditor(u.getId(), tenantId, hoje, PbcItemStatus.APROVADO))
+                        .build())
+                .collect(Collectors.toList());
     }
 }
