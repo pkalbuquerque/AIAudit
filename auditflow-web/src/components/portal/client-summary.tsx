@@ -26,13 +26,13 @@ function Tile({
   return (
     <button
       onClick={onClick}
-      className="text-left rounded-lg px-4 py-3.5 border flex items-center gap-3.5 transition-all"
+      className="text-left rounded-xl px-4 py-3.5 border flex items-center gap-3.5 transition-all hover:-translate-y-0.5"
       style={{
         background: hot ? "rgba(229,83,60,0.06)" : "#FFFFFF",
         borderColor: hot ? "rgba(229,83,60,0.45)" : "#E2E8F0",
-        ...(active
-          ? { boxShadow: `0 0 0 2px ${hot ? "rgba(229,83,60,0.35)" : "rgba(13,31,45,0.12)"}` }
-          : {}),
+        boxShadow: active
+          ? `0 8px 24px -8px rgba(13,31,45,0.22), 0 0 0 2px ${hot ? "rgba(229,83,60,0.35)" : "rgba(13,31,45,0.14)"}`
+          : "0 8px 22px -10px rgba(13,31,45,0.20)",
       }}
     >
       <span
@@ -74,7 +74,7 @@ export function ClientSummary({
   const lateHot = late > 0;
 
   return (
-    <div className="grid grid-cols-4 gap-3 mt-5">
+    <div className="grid grid-cols-4 gap-3">
       <Tile
         label="Tarefas no projeto"
         value={items.length}

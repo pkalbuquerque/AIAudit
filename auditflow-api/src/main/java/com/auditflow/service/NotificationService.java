@@ -75,10 +75,28 @@ public class NotificationService {
         send(destinoEmail, "Item aprovado: " + itemTitulo, html);
     }
 
+    /** Envio de teste manual (bypassa app.notifications-enabled). Retorna mensagem do resultado. */
+    public String sendTest(String to) {
+        String html = wrap("teste", "E-mail de teste do AuditFlow",
+                "Se você recebeu este e-mail, a integração com o Resend está funcionando. 🎉");
+        return deliver(to, "AuditFlow — e-mail de teste", html);
+    }
+
+    /** Usado pelos disparos automáticos: respeita o interruptor app.notifications-enabled. */
     private void send(String to, String subject, String html) {
-        if (!enabled || apiKey == null || apiKey.isBlank()) {
+        if (!enabled) {
             log.info("[notif] (desativado) e-mail não enviado para {} — assunto: {}", to, subject);
             return;
+        }
+        deliver(to, subject, html);
+    }
+
+    /** Chamada HTTP ao Resend. Retorna uma mensagem legível do resultado. */
+    private String deliver(String to, String subject, String html) {
+        if (apiKey == null || apiKey.isBlank()) {
+            String m = "RESEND_API_KEY não configurada — nada enviado.";
+            log.info("[notif] {}", m);
+            return m;
         }
         try {
             String body = mapper.writeValueAsString(Map.of(
@@ -97,11 +115,13 @@ public class NotificationService {
             HttpResponse<String> resp = http.send(request, HttpResponse.BodyHandlers.ofString());
             if (resp.statusCode() >= 200 && resp.statusCode() < 300) {
                 log.info("[notif] e-mail enviado para {} — assunto: {}", to, subject);
-            } else {
-                log.warn("[notif] Resend respondeu {} ao enviar para {}: {}", resp.statusCode(), to, resp.body());
+                return "E-mail enviado para " + to + ".";
             }
+            log.warn("[notif] Resend respondeu {} ao enviar para {}: {}", resp.statusCode(), to, resp.body());
+            return "Resend retornou HTTP " + resp.statusCode() + ": " + resp.body();
         } catch (Exception e) {
             log.warn("[notif] Falha ao enviar e-mail para {}: {}", to, e.getMessage());
+            return "Falha ao enviar: " + e.getMessage();
         }
     }
 

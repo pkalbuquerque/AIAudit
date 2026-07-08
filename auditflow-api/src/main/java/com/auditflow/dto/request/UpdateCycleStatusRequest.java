@@ -11,4 +11,7 @@ public class UpdateCycleStatusRequest {
     private CycleStatus status;
 
     private Boolean forcar;
+
+    /** Obrigatória ao encerrar à força (itens não aprovados). */
+    private String justificativa;
 }

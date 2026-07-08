@@ -37,6 +37,8 @@ export default function ClientPortalPage() {
 
   const firstName = (user?.nome ?? "").split(" ")[0] || "—";
   const actionableCount = all.filter(isActionableByClient).length;
+  const doneCount = all.filter((t) => t.status === "APROVADO").length;
+  const donePct = all.length ? Math.round((doneCount / all.length) * 100) : 0;
 
   const counts: Record<PortalFilter, number> = {
     todas: all.length,
@@ -83,42 +85,79 @@ export default function ClientPortalPage() {
     <div className="min-h-screen bg-paper">
       <ClientHeader />
 
-      <main className="max-w-[1180px] mx-auto px-8 pt-7 pb-14">
-        {/* hero compacto */}
-        <div className="flex items-center gap-3.5">
-          <Avatar name={user?.nome ?? "—"} size={42} tone="#7E3AF2" />
-          <div>
-            <h1 className="font-display text-[24px] leading-tight text-text">Olá, {firstName}</h1>
-            <p className="text-[13px] text-sub mt-0.5">
-              {actionableCount > 0 ? (
-                <>
-                  Você tem{" "}
-                  <span className="text-text font-medium">
-                    {actionableCount} {actionableCount === 1 ? "tarefa" : "tarefas"}
-                  </span>{" "}
-                  {actionableCount === 1 ? "que precisa" : "que precisam"} da sua atenção.
-                </>
-              ) : (
-                <>Está tudo em dia por aqui. 🎉</>
-              )}
-            </p>
+      {/* HERO escuro */}
+      <div style={{ background: "#0D1F2D" }} className="text-white">
+        <div className="max-w-[1180px] mx-auto px-8 pt-9 pb-24">
+          <div className="flex items-start justify-between gap-6 flex-wrap">
+            <div className="flex items-center gap-4 min-w-0">
+              <Avatar name={user?.nome ?? "—"} size={52} tone="#7E3AF2" />
+              <div className="min-w-0">
+                <div className="text-[10.5px] tracking-[0.2em] uppercase" style={{ color: "#00C896" }}>
+                  Suas entregas
+                </div>
+                <h1 className="font-display text-[30px] leading-tight text-white mt-0.5">Olá, {firstName}</h1>
+                <p className="text-[13.5px] text-white/70 mt-1">
+                  {actionableCount > 0 ? (
+                    <>
+                      Você tem{" "}
+                      <span className="text-white font-medium">
+                        {actionableCount} {actionableCount === 1 ? "tarefa" : "tarefas"}
+                      </span>{" "}
+                      {actionableCount === 1 ? "que precisa" : "que precisam"} da sua atenção.
+                    </>
+                  ) : (
+                    <>Está tudo em dia por aqui. 🎉</>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {itemsQ.isSuccess && all.length > 0 && (
+              <div
+                className="rounded-xl border border-white/10 px-5 py-4 min-w-[230px]"
+                style={{ background: "rgba(255,255,255,0.04)" }}
+              >
+                <div className="text-[10.5px] tracking-[0.16em] uppercase text-white/50">
+                  Progresso do projeto
+                </div>
+                <div className="flex items-end gap-2 mt-1.5">
+                  <span className="font-display text-[32px] leading-none text-white">{donePct}%</span>
+                  <span className="text-white/60 text-[12px] mb-1">
+                    {doneCount}/{all.length} aprovadas
+                  </span>
+                </div>
+                <div
+                  className="mt-3 h-2 rounded-full overflow-hidden"
+                  style={{ background: "rgba(255,255,255,0.12)" }}
+                >
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{ width: `${donePct}%`, background: "#00C896" }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
+      </div>
 
+      <main className="max-w-[1180px] mx-auto px-8 pb-14">
         {itemsQ.isLoading && (
-          <div className="mt-6">
+          <div className="pt-8">
             <TableSkeleton rows={5} cols={4} />
           </div>
         )}
         {itemsQ.isError && (
-          <div className="mt-6">
+          <div className="pt-8">
             <ErrorAlert message={handleApiError(itemsQ.error)} onRetry={() => itemsQ.refetch()} />
           </div>
         )}
 
         {itemsQ.isSuccess && (
           <>
-            <ClientSummary items={all} filter={filter} setFilter={setFilter} />
+            <div className="-mt-16 relative z-10">
+              <ClientSummary items={all} filter={filter} setFilter={setFilter} />
+            </div>
 
             {/* barra: pills + ordenação */}
             <div className="mt-7 flex items-center justify-between gap-4 flex-wrap mb-3">

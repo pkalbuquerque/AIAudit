@@ -23,5 +23,6 @@ public class AuditCycleResponse {
     private LocalDate dataFim;
     private CycleStatus status;
     private Double progressoPercent;
+    private String justificativaEncerramento;
     private LocalDateTime criadoEm;
 }

@@ -44,7 +44,11 @@ export function Sidebar() {
       className="w-[240px] shrink-0 flex flex-col text-white sticky top-0 max-h-screen overflow-y-auto"
       style={{ background: "#0D1F2D", minHeight: "100vh" }}
     >
-      <div className="px-5 pt-6 pb-6 flex items-center gap-2.5">
+      <Link
+        href="/dashboard"
+        title="Ir para o início"
+        className="px-5 pt-6 pb-6 flex items-center gap-2.5 rounded-md transition-opacity hover:opacity-80"
+      >
         <div className="w-9 h-9 rounded-md flex items-center justify-center" style={{ background: "#00C896" }}>
           <span className="font-display text-[20px] leading-none" style={{ color: "#0D1F2D", marginTop: 2 }}>
             A
@@ -54,7 +58,7 @@ export function Sidebar() {
           <div className="font-display text-[18px]">AuditFlow</div>
           <div className="text-[9.5px] tracking-[0.22em] uppercase text-white/40 mt-0.5">{meta.portal}</div>
         </div>
-      </div>
+      </Link>
 
       <div className="px-4 mb-2 text-[9.5px] tracking-[0.22em] uppercase text-white/30">Workspace</div>
       <nav className="px-2 flex flex-col gap-0.5">
@@ -82,17 +86,6 @@ export function Sidebar() {
           );
         })}
       </nav>
-
-      <div className="mt-7 px-4 mb-2 text-[9.5px] tracking-[0.22em] uppercase text-white/30">Acessos</div>
-      <div className="px-2 flex flex-col gap-0.5">
-        <Link
-          href="/email-template"
-          className="flex items-center gap-3 px-3 py-2 rounded-md text-[13.5px] text-white/70 hover:bg-white/[0.04] hover:text-white"
-        >
-          <I.mail size={17} className="text-white/55" />
-          <span>Templates de e-mail</span>
-        </Link>
-      </div>
 
       <div className="mt-auto">
         <nav className="px-2 pb-5 pt-6 flex flex-col gap-0.5">

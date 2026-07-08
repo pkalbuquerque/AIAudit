@@ -59,6 +59,7 @@ export interface AuditCycleResponse {
   dataFim?: string;
   status: CycleStatusApi;
   progressoPercent?: number;
+  justificativaEncerramento?: string | null;
   criadoEm: string;
 }
 
@@ -270,6 +271,7 @@ export interface CreateAuditCycleRequest {
 export interface UpdateCycleStatusRequest {
   status: CycleStatusApi;
   forcar?: boolean;
+  justificativa?: string;
 }
 
 export interface CreatePbcItemRequest {

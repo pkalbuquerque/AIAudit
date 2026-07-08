@@ -1,9 +1,11 @@
 package com.auditflow.service;
 
+import com.auditflow.domain.entity.AuditCycle;
 import com.auditflow.domain.entity.AuditLog;
 import com.auditflow.domain.entity.Document;
 import com.auditflow.domain.entity.PbcItem;
 import com.auditflow.domain.entity.User;
+import com.auditflow.domain.enums.CycleStatus;
 import com.auditflow.domain.enums.Perfil;
 import com.auditflow.domain.enums.PbcItemStatus;
 import com.auditflow.domain.repository.AuditCycleRepository;
@@ -53,6 +55,10 @@ public class PbcItemService {
         var cycle = auditCycleRepository.findById(cycleId)
                 .filter(c -> c.getTenantId().equals(tenantId) && c.getDeletedAt() == null)
                 .orElseThrow(() -> new ResourceNotFoundException("Ciclo não encontrado"));
+
+        if (cycle.getStatus() == CycleStatus.ENCERRADO) {
+            throw new InvalidOperationException("Não é possível adicionar itens a um projeto encerrado.");
+        }
 
         User dono = userRepository.findById(request.getResponsavelId())
                 .filter(u -> u.getTenantId().equals(tenantId) && u.getPerfil() == Perfil.CLIENTE)
@@ -128,8 +134,7 @@ public class PbcItemService {
                     "Transição inválida: " + item.getStatus() + " → EM_REVISAO. Item deve estar PENDENTE ou REJEITADO.");
         }
 
-        var cycle = auditCycleRepository.findById(item.getCycleId())
-                .orElseThrow(() -> new ResourceNotFoundException("Ciclo não encontrado"));
+        AuditCycle cycle = requireCicloEmAndamento(item.getCycleId(), tenantId);
         String storagePath = storageService.store(file, tenantId, cycle.getId());
 
         Document document = Document.builder()
@@ -154,6 +159,7 @@ public class PbcItemService {
         User currentUser = SecurityUtils.getCurrentUser();
 
         PbcItem item = getItemForTenant(id, tenantId);
+        requireCicloEmAndamento(item.getCycleId(), tenantId);
 
         if (item.getStatus() != PbcItemStatus.EM_REVISAO) {
             throw new InvalidStatusTransitionException(
@@ -188,6 +194,7 @@ public class PbcItemService {
         User currentUser = SecurityUtils.getCurrentUser();
 
         PbcItem item = getItemForTenant(id, tenantId);
+        requireCicloEmAndamento(item.getCycleId(), tenantId);
 
         if (item.getStatus() != PbcItemStatus.EM_REVISAO) {
             throw new InvalidStatusTransitionException(
@@ -241,6 +248,20 @@ public class PbcItemService {
         return pbcItemRepository.findById(id)
                 .filter(i -> i.getTenantId().equals(tenantId))
                 .orElseThrow(() -> new ResourceNotFoundException("Item PBC não encontrado"));
+    }
+
+    /** Garante que o projeto do item está EM ANDAMENTO (evita ações antes de iniciar
+        ou depois de encerrar). Retorna o ciclo carregado. */
+    private AuditCycle requireCicloEmAndamento(UUID cycleId, UUID tenantId) {
+        AuditCycle cycle = auditCycleRepository.findById(cycleId)
+                .filter(c -> c.getTenantId().equals(tenantId) && c.getDeletedAt() == null)
+                .orElseThrow(() -> new ResourceNotFoundException("Ciclo não encontrado"));
+        if (cycle.getStatus() != CycleStatus.EM_ANDAMENTO) {
+            throw new InvalidOperationException(
+                    "O projeto precisa estar EM ANDAMENTO para esta ação (status atual: "
+                            + cycle.getStatus() + ").");
+        }
+        return cycle;
     }
 
     private void log(PbcItem item, User ator, String acao, String descricao, UUID tenantId) {

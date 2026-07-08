@@ -123,13 +123,21 @@ public class AuditCycleService {
                 throw new ForbiddenException("Apenas ADMIN pode encerrar um ciclo.");
             }
             boolean forcar = Boolean.TRUE.equals(request.getForcar());
-            if (!forcar) {
-                long total = pbcItemRepository.countByCycleId(id);
-                long aprovados = pbcItemRepository.countByCycleIdAndStatus(id, PbcItemStatus.APROVADO);
-                if (total > 0 && aprovados < total) {
+            long total = pbcItemRepository.countByCycleId(id);
+            long aprovados = pbcItemRepository.countByCycleIdAndStatus(id, PbcItemStatus.APROVADO);
+            boolean incompleto = total > 0 && aprovados < total;
+
+            if (incompleto && !forcar) {
+                throw new InvalidOperationException(
+                        "Existem itens PBC não aprovados. Use forcar=true para encerrar assim mesmo.");
+            }
+            if (incompleto) {
+                // encerramento à força exige justificativa
+                if (request.getJustificativa() == null || request.getJustificativa().isBlank()) {
                     throw new InvalidOperationException(
-                            "Existem itens PBC não aprovados. Use forcar=true para encerrar assim mesmo.");
+                            "Informe uma justificativa para encerrar o projeto com itens pendentes.");
                 }
+                cycle.setJustificativaEncerramento(request.getJustificativa().trim());
             }
         }
 
@@ -160,7 +168,10 @@ public class AuditCycleService {
     private AuditCycleResponse toResponse(AuditCycle cycle) {
         long total = pbcItemRepository.countByCycleId(cycle.getId());
         long aprovados = pbcItemRepository.countByCycleIdAndStatus(cycle.getId(), PbcItemStatus.APROVADO);
-        double progresso = total == 0 ? 0.0 : (double) aprovados / total;
+        // progresso em porcentagem (0–100). ABERTO ainda não iniciou → 0.
+        double progresso = (total == 0 || cycle.getStatus() == CycleStatus.ABERTO)
+                ? 0.0
+                : (double) aprovados * 100.0 / total;
 
         return AuditCycleResponse.builder()
                 .id(cycle.getId())
@@ -174,6 +185,7 @@ public class AuditCycleService {
                 .dataFim(cycle.getDataFim())
                 .status(cycle.getStatus())
                 .progressoPercent(progresso)
+                .justificativaEncerramento(cycle.getJustificativaEncerramento())
                 .criadoEm(cycle.getCriadoEm())
                 .build();
     }

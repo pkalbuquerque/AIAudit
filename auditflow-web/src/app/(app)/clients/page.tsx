@@ -61,11 +61,10 @@ function ClientCard({
         <div className="min-w-0 flex-1">
           <h3 className="font-display text-[19px] text-text leading-tight">{c.nomeEmpresa}</h3>
           <div className="text-[12px] text-sub tabular-nums mt-0.5">{c.cnpj}</div>
-          {c.segmento && (
-            <div className="mt-2">
-              <SegmentBadge>{c.segmento}</SegmentBadge>
-            </div>
-          )}
+          {/* slot fixo para o segmento — mantém a altura do header igual com/sem segmento */}
+          <div className="mt-2 min-h-[22px]">
+            {c.segmento ? <SegmentBadge>{c.segmento}</SegmentBadge> : null}
+          </div>
         </div>
         {c.ativo ? (
           <Badge kind="encerrado" size="sm">
@@ -108,7 +107,7 @@ function ClientCard({
         <Metric v={c.ciclosAtivos ?? 0} l="ciclos ativos" />
       </div>
 
-      <div className="border-t border-line mt-4 pt-3.5 flex items-center justify-between gap-2">
+      <div className="border-t border-line mt-auto pt-3.5 flex items-center justify-between gap-2">
         <Link
           href={`/clients/${c.id}`}
           className="text-[12.5px] text-ink-900 font-medium hover:underline inline-flex items-center gap-1 shrink-0"

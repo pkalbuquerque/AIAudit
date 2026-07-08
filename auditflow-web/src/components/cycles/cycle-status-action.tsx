@@ -26,18 +26,21 @@ export function CycleStatusAction({
   const step = NEXT[status];
   if (!step) return null;
 
-  const run = (forcar?: boolean) => {
+  const run = (forcar?: boolean, justificativa?: string) => {
     update.mutate(
-      { id: cycleId, data: { status: step.next, forcar } },
+      { id: cycleId, data: { status: step.next, forcar, justificativa } },
       {
         onSuccess: () => pushToast("success", step.next === "ENCERRADO" ? "Projeto encerrado" : "Projeto iniciado"),
         onError: (err) => {
           const msg = handleApiError(err);
-          // itens não aprovados ao encerrar → oferece encerrar à força
-          if (step.next === "ENCERRADO" && /forcar|não aprovados|nao aprovados/i.test(msg)) {
-            if (typeof window !== "undefined" && window.confirm(`${msg}\n\nEncerrar mesmo assim?`)) {
-              run(true);
-              return;
+          // itens não aprovados ao encerrar → pede justificativa e encerra à força
+          if (step.next === "ENCERRADO" && /forcar|justificativa|não aprovados|nao aprovados/i.test(msg)) {
+            if (typeof window === "undefined") return;
+            const motivo = window.prompt(
+              "Existem itens não aprovados. Informe uma justificativa para encerrar mesmo assim:"
+            );
+            if (motivo && motivo.trim()) {
+              run(true, motivo.trim());
             }
             return;
           }

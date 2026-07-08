@@ -51,6 +51,10 @@ public class AuditCycle {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    /** Motivo informado quando o projeto é encerrado à força (com itens não aprovados). */
+    @Column(name = "justificativa_encerramento", columnDefinition = "TEXT")
+    private String justificativaEncerramento;
+
     @CreationTimestamp
     @Column(name = "criado_em", updatable = false)
     private LocalDateTime criadoEm;
