@@ -1,8 +1,8 @@
 "use client";
 
 /* Slide-over: Adicionar Cliente — POST /api/clients.
-   O backend cria também o usuário CLIENTE e devolve a senha provisória,
-   exibida uma única vez na confirmação. */
+   O backend cria também o usuário CLIENTE e envia um e-mail com link de ativação para
+   ele definir a própria senha. O link volta na resposta como contingência. */
 
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -33,9 +33,10 @@ type AddClientForm = z.infer<typeof addClientSchema>;
 
 function CreatedPanel({ created, onClose }: { created: AuditClientResponse; onClose: () => void }) {
   const [copied, setCopied] = useState(false);
+  const [showLink, setShowLink] = useState(false);
   const copy = async () => {
-    if (!created.senhaProvisoria) return;
-    await navigator.clipboard.writeText(created.senhaProvisoria);
+    if (!created.linkAtivacao) return;
+    await navigator.clipboard.writeText(created.linkAtivacao);
     setCopied(true);
     setTimeout(() => setCopied(false), 1600);
   };
@@ -45,36 +46,47 @@ function CreatedPanel({ created, onClose }: { created: AuditClientResponse; onCl
         className="w-12 h-12 rounded-full flex items-center justify-center mb-4"
         style={{ background: "rgba(0,200,150,0.14)", color: "#0A8F6A" }}
       >
-        <I.check size={22} />
+        <I.mail size={22} />
       </div>
       <h3 className="font-display text-[22px] text-text leading-tight">
         {created.nomeEmpresa} cadastrado
       </h3>
       <p className="text-[13px] text-sub mt-1.5 leading-relaxed">
-        O acesso ao Portal do Cliente foi criado para{" "}
-        <span className="text-text font-medium">{created.emailContato}</span>. Compartilhe a senha
-        provisória abaixo — ela não será exibida novamente.
+        Enviamos um e-mail para{" "}
+        <span className="text-text font-medium">{created.emailContato}</span> com um link para o
+        cliente definir a própria senha e ativar o acesso ao Portal.
       </p>
 
-      {created.senhaProvisoria && (
-        <div className="mt-5 rounded-lg border border-line bg-paper/50 p-4">
-          <div className="text-[10.5px] tracking-[0.18em] uppercase text-sub mb-2">
-            Senha provisória
-          </div>
-          <div className="flex items-center gap-3">
-            <code className="flex-1 text-[15px] text-text font-semibold tracking-wide bg-white border border-line rounded-md px-3 py-2.5 select-all">
-              {created.senhaProvisoria}
-            </code>
-            <Btn kind="ghost" onClick={copy} icon={copied ? <I.check /> : undefined}>
-              {copied ? "Copiado" : "Copiar"}
-            </Btn>
-          </div>
+      {created.linkAtivacao && (
+        <div className="mt-5">
+          {showLink ? (
+            <div className="rounded-lg border border-line bg-paper/50 p-4">
+              <div className="text-[10.5px] tracking-[0.18em] uppercase text-sub mb-2">
+                Link de ativação (contingência)
+              </div>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-[11.5px] text-text bg-white border border-line rounded-md px-2.5 py-2 truncate select-all">
+                  {created.linkAtivacao}
+                </code>
+                <Btn kind="ghost" onClick={copy} icon={copied ? <I.check /> : <I.copy />}>
+                  {copied ? "Copiado" : "Copiar"}
+                </Btn>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowLink(true)}
+              className="text-[12px] text-sub hover:text-text underline underline-offset-2"
+            >
+              Não recebeu o e-mail? Copiar link manualmente
+            </button>
+          )}
         </div>
       )}
 
       <div className="mt-6 p-4 rounded-md border border-line bg-paper/40 flex items-start gap-3 text-[12px] text-sub leading-relaxed">
         <I.shield size={15} className="text-ink-900 mt-0.5 shrink-0" />
-        No primeiro login o cliente será orientado a trocar a senha.
+        O link é pessoal e expira em alguns dias. A senha é escolhida pelo próprio cliente.
       </div>
 
       <div className="mt-8">

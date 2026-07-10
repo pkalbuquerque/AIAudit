@@ -44,6 +44,7 @@ public class AuditClientService {
     private final PasswordEncoder passwordEncoder;
     private final UserService userService;
     private final AuditLogService auditLogService;
+    private final PasswordTokenService passwordTokenService;
 
     @Transactional
     public AuditClientResponse create(CreateAuditClientRequest request) {
@@ -67,34 +68,36 @@ public class AuditClientService {
                 .build();
         client = auditClientRepository.save(client);
 
-        String senhaGerada = UUID.randomUUID().toString().replace("-", "").substring(0, 10);
-
         User clientUser = User.builder()
                 .tenantId(tenantId)
                 .auditClientId(client.getId())
                 .nome(request.getNomeUsuario())
                 .email(request.getEmail())
-                .senhaHash(passwordEncoder.encode(senhaGerada))
+                .senhaHash(passwordEncoder.encode(UUID.randomUUID().toString()))
                 .perfil(Perfil.CLIENTE)
                 .senhaProvisoria(true)
                 .build();
-        userRepository.save(clientUser);
+        clientUser = userRepository.save(clientUser);
 
         auditLogService.record(tenantId, SecurityUtils.getCurrentUser().getId(), "CLIENTE_CRIADO",
                 "Cliente " + client.getNomeEmpresa() + " criado", "AuditClient", client.getId());
-        return toResponse(client, senhaGerada);
+
+        String link = passwordTokenService.issueActivation(clientUser,
+                "Sua empresa " + client.getNomeEmpresa() + " recebeu acesso ao Portal do Cliente.");
+        return toResponse(client, link);
     }
 
-    public List<AuditClientResponse> findAll() {
+    /**
+     * Lista clientes do escritório (modelo colaborativo: todos os auditores veem tudo do tenant).
+     * {@code mine=true} filtra opcionalmente para os clientes atribuídos ao usuário atual.
+     */
+    public List<AuditClientResponse> findAll(boolean mine) {
         UUID tenantId = TenantContext.getTenantId();
-        User currentUser = SecurityUtils.getCurrentUser();
 
-        List<AuditClient> clients;
-        if (currentUser.getPerfil() == Perfil.AUDITOR) {
-            clients = auditClientRepository.findAllByTenantIdAndAuditorResponsavelId(tenantId, currentUser.getId());
-        } else {
-            clients = auditClientRepository.findAllByTenantId(tenantId);
-        }
+        List<AuditClient> clients = mine
+                ? auditClientRepository.findAllByTenantIdAndAuditorResponsavelId(
+                        tenantId, SecurityUtils.getCurrentUser().getId())
+                : auditClientRepository.findAllByTenantId(tenantId);
 
         return clients.stream()
                 .map(c -> toResponse(c, null))
@@ -125,7 +128,7 @@ public class AuditClientService {
                 .collect(Collectors.toList());
     }
 
-    /** Cria um usuário CLIENTE adicional para o cliente; retorna a senha provisória. */
+    /** Cria um usuário CLIENTE adicional para o cliente; envia o convite de ativação por e-mail. */
     @Transactional
     public UserResponse addClientUser(UUID clientId, CreateClientUserRequest request) {
         UUID tenantId = TenantContext.getTenantId();
@@ -137,14 +140,12 @@ public class AuditClientService {
             throw new DuplicateEmailException("E-mail já cadastrado no sistema");
         }
 
-        String senhaGerada = UUID.randomUUID().toString().replace("-", "").substring(0, 10);
-
         User user = User.builder()
                 .tenantId(tenantId)
                 .auditClientId(client.getId())
                 .nome(request.getNome())
                 .email(request.getEmail())
-                .senhaHash(passwordEncoder.encode(senhaGerada))
+                .senhaHash(passwordEncoder.encode(UUID.randomUUID().toString()))
                 .perfil(Perfil.CLIENTE)
                 .senhaProvisoria(true)
                 .build();
@@ -153,8 +154,11 @@ public class AuditClientService {
         auditLogService.record(tenantId, SecurityUtils.getCurrentUser().getId(), "USUARIO_CLIENTE_CRIADO",
                 "Usuário " + user.getNome() + " adicionado ao cliente " + client.getNomeEmpresa(),
                 "User", user.getId());
+
+        String link = passwordTokenService.issueActivation(user,
+                "Você recebeu acesso ao Portal do Cliente de " + client.getNomeEmpresa() + ".");
         UserResponse response = userService.toResponse(user);
-        response.setSenhaProvisoria(senhaGerada);
+        response.setLinkAtivacao(link);
         return response;
     }
 
@@ -229,7 +233,7 @@ public class AuditClientService {
         return toResponse(client, null);
     }
 
-    private AuditClientResponse toResponse(AuditClient client, String senhaProvisoria) {
+    private AuditClientResponse toResponse(AuditClient client, String linkAtivacao) {
         UserResponse auditorResp = null;
         if (client.getAuditorResponsavelId() != null) {
             auditorResp = userRepository.findById(client.getAuditorResponsavelId())
@@ -256,7 +260,7 @@ public class AuditClientService {
                 .totalCiclos(totalCiclos)
                 .ciclosAtivos(ciclosAtivos)
                 .criadoEm(client.getCriadoEm())
-                .senhaProvisoria(senhaProvisoria)
+                .linkAtivacao(linkAtivacao)
                 .build();
     }
 }

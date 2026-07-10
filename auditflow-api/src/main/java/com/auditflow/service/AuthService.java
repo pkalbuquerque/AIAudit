@@ -10,6 +10,7 @@ import com.auditflow.dto.request.LoginRequest;
 import com.auditflow.dto.request.RegisterRequest;
 import com.auditflow.dto.response.AuthResponse;
 import com.auditflow.dto.response.UserResponse;
+import com.auditflow.exception.DuplicateEmailException;
 import com.auditflow.exception.UnauthorizedException;
 import com.auditflow.security.JwtService;
 import com.auditflow.security.SecurityUtils;
@@ -34,6 +35,11 @@ public class AuthService {
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
+        // Pré-checa o e-mail para retornar 400 amigável em vez de estourar a constraint (500).
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            throw new DuplicateEmailException("E-mail já cadastrado no sistema.");
+        }
+
         Tenant tenant = Tenant.builder()
                 .nome(request.getNomeEscritorio())
                 .emailContato(request.getEmailContato())
@@ -91,6 +97,11 @@ public class AuthService {
             }
             userRepository.save(user);
             throw new UnauthorizedException("Credenciais inválidas");
+        }
+
+        if (!user.isAtivo()) {
+            log.warn("Tentativa de login em conta desativada: {}", user.getEmail());
+            throw new UnauthorizedException("Conta desativada");
         }
 
         user.setTentativasLogin(0);

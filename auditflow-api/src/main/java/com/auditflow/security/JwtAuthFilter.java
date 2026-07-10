@@ -50,13 +50,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             if (SecurityContextHolder.getContext().getAuthentication() == null) {
                 User user = userRepository.findByEmailAndTenantId(email, tenantId).orElse(null);
 
-                if (user != null) {
+                if (user == null) {
+                    log.warn("Token válido mas usuário não encontrado no banco: {} | tenantId: {}", email, tenantId);
+                } else if (!user.isAtivo()) {
+                    log.warn("Token válido mas conta desativada: {} | tenantId: {}", email, tenantId);
+                } else {
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
-                } else {
-                    log.warn("Token válido mas usuário não encontrado no banco: {} | tenantId: {}", email, tenantId);
                 }
             }
 

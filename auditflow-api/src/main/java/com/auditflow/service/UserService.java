@@ -28,6 +28,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditLogService auditLogService;
+    private final PasswordTokenService passwordTokenService;
 
     @Transactional
     public UserResponse invite(CreateUserRequest request) {
@@ -42,13 +43,13 @@ public class UserService {
             throw new DuplicateEmailException("E-mail já cadastrado no sistema.");
         }
 
-        String senhaGerada = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
-
+        // Senha aleatória inutilizável: o convidado nunca a conhece — ele define a própria
+        // senha pelo link de ativação enviado por e-mail.
         User user = User.builder()
                 .tenantId(tenantId)
                 .nome(request.getNome())
                 .email(request.getEmail())
-                .senhaHash(passwordEncoder.encode(senhaGerada))
+                .senhaHash(passwordEncoder.encode(UUID.randomUUID().toString()))
                 .perfil(request.getPerfil() != null ? request.getPerfil() : Perfil.AUDITOR)
                 .senhaProvisoria(true)
                 .build();
@@ -56,8 +57,12 @@ public class UserService {
         user = userRepository.save(user);
         auditLogService.record(tenantId, SecurityUtils.getCurrentUser().getId(), "AUDITOR_CONVIDADO",
                 "Usuário " + user.getNome() + " (" + user.getPerfil() + ") convidado", "User", user.getId());
+
+        String link = passwordTokenService.issueActivation(user,
+                "Você foi convidado para a equipe de auditoria.");
+
         UserResponse response = toResponse(user);
-        response.setSenhaProvisoria(senhaGerada); // repassada ao convidado até o e-mail estar ativo
+        response.setLinkAtivacao(link); // contingência caso o e-mail não chegue
         return response;
     }
 

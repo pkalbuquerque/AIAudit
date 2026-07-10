@@ -142,6 +142,12 @@ export default function LoginPage() {
               </div>
             )}
 
+            <div className="mt-2 text-right">
+              <a href="/esqueci-senha" className="text-[12px] text-sub hover:text-text">
+                Esqueci minha senha
+              </a>
+            </div>
+
             <button
               type="submit"
               disabled={submitting}

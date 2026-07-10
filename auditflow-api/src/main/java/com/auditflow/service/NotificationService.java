@@ -75,6 +75,30 @@ public class NotificationService {
         send(destinoEmail, "Item aprovado: " + itemTitulo, html);
     }
 
+    /**
+     * Convite: o novo usuário (auditor ou cliente) define a própria senha pelo link.
+     * E-mail essencial — sempre tenta enviar, independente de app.notifications-enabled.
+     */
+    @Async
+    public void convite(String destinoEmail, String destinoNome, String contexto, String linkAtivacao) {
+        String corpo = esc(contexto) + " Para começar, defina a sua senha de acesso — o link é pessoal"
+                + " e expira em alguns dias.";
+        String html = wrapCta(destinoNome, "Bem-vindo(a) ao AuditFlow", corpo, "Definir minha senha", linkAtivacao);
+        deliver(destinoEmail, "Seu acesso ao AuditFlow", html);
+    }
+
+    /**
+     * Redefinição de senha ("esqueci minha senha").
+     * E-mail essencial — sempre tenta enviar, independente de app.notifications-enabled.
+     */
+    @Async
+    public void resetSenha(String destinoEmail, String destinoNome, String linkReset) {
+        String corpo = "Recebemos um pedido para redefinir a sua senha. Clique no botão abaixo para criar"
+                + " uma nova — o link expira em 1 hora. Se não foi você, ignore este e-mail.";
+        String html = wrapCta(destinoNome, "Redefinir sua senha", corpo, "Criar nova senha", linkReset);
+        deliver(destinoEmail, "Redefinição de senha — AuditFlow", html);
+    }
+
     /** Envio de teste manual (bypassa app.notifications-enabled). Retorna mensagem do resultado. */
     public String sendTest(String to) {
         String html = wrap("teste", "E-mail de teste do AuditFlow",
@@ -134,6 +158,21 @@ public class NotificationService {
                 + "<p style=\"color:#4B5563;font-size:14px;line-height:1.6;margin:0 0 20px\">" + corpo + "</p>"
                 + "<a href=\"" + esc(portalUrl) + "\" style=\"display:inline-block;background:#00C896;color:#0D1F2D;"
                 + "padding:12px 22px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px\">Acessar o portal</a>"
+                + "</div></div>";
+    }
+
+    /** Igual ao {@link #wrap}, mas com botão de CTA para um link/label arbitrário. */
+    private String wrapCta(String nome, String titulo, String corpo, String ctaLabel, String ctaUrl) {
+        return "<div style=\"font-family:Arial,sans-serif;max-width:520px;margin:0 auto;border:1px solid #E2E8F0;border-radius:10px;overflow:hidden\">"
+                + "<div style=\"background:#0D1F2D;padding:20px 24px;color:#fff;font-size:18px\">AuditFlow</div>"
+                + "<div style=\"padding:24px\">"
+                + "<p style=\"color:#1C1C1E;font-size:14px;margin:0 0 8px\">Olá, " + esc(nome) + ",</p>"
+                + "<h1 style=\"color:#0D1F2D;font-size:20px;margin:0 0 12px\">" + esc(titulo) + "</h1>"
+                + "<p style=\"color:#4B5563;font-size:14px;line-height:1.6;margin:0 0 20px\">" + corpo + "</p>"
+                + "<a href=\"" + esc(ctaUrl) + "\" style=\"display:inline-block;background:#00C896;color:#0D1F2D;"
+                + "padding:12px 22px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px\">" + esc(ctaLabel) + "</a>"
+                + "<p style=\"color:#9CA3AF;font-size:12px;line-height:1.6;margin:20px 0 0\">Se o botão não funcionar, copie e cole este endereço no navegador:<br>"
+                + "<span style=\"color:#4B5563;word-break:break-all\">" + esc(ctaUrl) + "</span></p>"
                 + "</div></div>";
     }
 

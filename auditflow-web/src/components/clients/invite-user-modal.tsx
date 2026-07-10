@@ -1,8 +1,8 @@
 "use client";
 
 /* Modal: Convidar Usuário do cliente — POST /api/clients/{id}/users (ADMIN).
-   O backend cria o usuário CLIENTE e retorna uma senha provisória para repasse
-   manual (até o envio por e-mail via Resend estar ativo). */
+   O backend cria o usuário CLIENTE e envia um e-mail com link de ativação para ele
+   definir a própria senha. O link também volta na resposta como contingência. */
 
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -14,6 +14,7 @@ import { FormField, TextField } from "@/components/ui/form";
 import { useAddClientUser } from "@/hooks/use-audit-clients";
 import { handleApiError } from "@/lib/error-handler";
 import { pushToast } from "@/store/toast-store";
+import { InviteSentPanel } from "@/components/auth/invite-sent-panel";
 
 const schema = z.object({
   nome: z.string().trim().min(1, "Informe o nome."),
@@ -32,7 +33,7 @@ export function InviteUserModal({
   onClose: () => void;
 }) {
   const add = useAddClientUser(clientId);
-  const [provisional, setProvisional] = useState<{ email: string; senha: string } | null>(null);
+  const [sent, setSent] = useState<{ email: string; link?: string | null } | null>(null);
 
   const {
     register,
@@ -52,11 +53,7 @@ export function InviteUserModal({
   const submit = handleSubmit((data) => {
     add.mutate(data, {
       onSuccess: (user) => {
-        if (user.senhaProvisoria) setProvisional({ email: user.email, senha: user.senhaProvisoria });
-        else {
-          pushToast("success", `Usuário ${user.email} criado`);
-          onClose();
-        }
+        setSent({ email: user.email, link: user.linkAtivacao });
       },
       onError: (err) => pushToast("error", handleApiError(err)),
     });
@@ -82,38 +79,15 @@ export function InviteUserModal({
           </button>
         </header>
 
-        {provisional ? (
-          <div className="px-6 py-6">
-            <div className="flex items-start gap-3 p-4 rounded-lg border border-mint/40 bg-mint/5">
-              <I.check size={18} className="text-mint mt-0.5" />
-              <div className="text-[13px] text-text leading-relaxed">
-                Usuário criado. Repasse estas credenciais — ele deve trocar a senha no primeiro acesso ao
-                portal.
-              </div>
-            </div>
-            <div className="mt-4 rounded-md border border-line bg-paper/40 p-4 text-[13px]">
-              <div className="flex justify-between py-1.5 border-b border-line/60">
-                <span className="text-sub">E-mail</span>
-                <span className="text-text font-medium">{provisional.email}</span>
-              </div>
-              <div className="flex justify-between py-1.5">
-                <span className="text-sub">Senha provisória</span>
-                <span className="text-text font-mono font-medium tracking-wide">{provisional.senha}</span>
-              </div>
-            </div>
-            <div className="mt-5 flex justify-end">
-              <Btn
-                kind="primary"
-                icon={<I.check />}
-                onClick={() => {
-                  pushToast("success", "Usuário adicionado ao portal");
-                  onClose();
-                }}
-              >
-                Concluir
-              </Btn>
-            </div>
-          </div>
+        {sent ? (
+          <InviteSentPanel
+            email={sent.email}
+            link={sent.link}
+            onClose={() => {
+              pushToast("success", "Usuário adicionado ao portal");
+              onClose();
+            }}
+          />
         ) : (
           <>
             <div className="px-6 py-5 grid gap-3">

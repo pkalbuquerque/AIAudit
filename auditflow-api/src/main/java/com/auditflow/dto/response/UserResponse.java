@@ -24,8 +24,8 @@ public class UserResponse {
     private boolean ativo;
     private LocalDateTime criadoEm;
 
-    /** Preenchido apenas na resposta de criação/convite — senha provisória a ser
-        repassada ao usuário (até o envio por e-mail estar ativo). */
+    /** Preenchido apenas na resposta de convite — link de ativação (definição da própria
+        senha) enviado por e-mail. Devolvido como contingência caso o e-mail não chegue. */
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    private String senhaProvisoria;
+    private String linkAtivacao;
 }

@@ -82,6 +82,7 @@ public class PbcItemService {
         return toResponse(item);
     }
 
+    @Transactional(readOnly = true)
     public List<PbcItemResponse> findAll(UUID cycleId) {
         UUID tenantId = TenantContext.getTenantId();
         User currentUser = SecurityUtils.getCurrentUser();
@@ -101,6 +102,7 @@ public class PbcItemService {
         return items.stream().map(this::toResponse).collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public PbcItemResponse findById(UUID id) {
         UUID tenantId = TenantContext.getTenantId();
         User currentUser = SecurityUtils.getCurrentUser();
@@ -317,7 +319,8 @@ public class PbcItemService {
                 .prazo(item.getPrazo())
                 .status(item.getStatus())
                 .prioridade(item.getPrioridade())
-                .criteriosDeAceite(item.getCriteriosDeAceite())
+                // materializa a coleção lazy dentro da transação (open-in-view=false)
+                .criteriosDeAceite(List.copyOf(item.getCriteriosDeAceite()))
                 .motivoRejeicao(item.getMotivoRejeicao())
                 .isOverdue(isOverdue)
                 .daysLeft(daysLeft)

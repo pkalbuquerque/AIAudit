@@ -19,8 +19,8 @@ export interface UserResponse {
   perfil: Perfil;
   ativo: boolean;
   criadoEm: string;
-  /** Só vem na resposta de convite/criação — senha provisória a repassar ao usuário. */
-  senhaProvisoria?: string | null;
+  /** Só vem na resposta de convite — link de ativação (contingência caso o e-mail não chegue). */
+  linkAtivacao?: string | null;
 }
 
 export interface AuthResponse {
@@ -43,8 +43,8 @@ export interface AuditClientResponse {
   totalCiclos?: number;
   ciclosAtivos?: number;
   criadoEm: string;
-  /** Retornado apenas na criação — senha gerada para o usuário CLIENTE. */
-  senhaProvisoria?: string;
+  /** Retornado apenas na criação — link de ativação do usuário CLIENTE (contingência ao e-mail). */
+  linkAtivacao?: string;
 }
 
 export interface AuditCycleResponse {
@@ -225,6 +225,22 @@ export interface RegisterRequest {
 export interface ChangePasswordRequest {
   senhaAtual: string;
   novaSenha: string;
+}
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  novaSenha: string;
+}
+
+export interface TokenInfoResponse {
+  valido: boolean;
+  nome?: string;
+  email?: string;
+  tipo?: "ACTIVATION" | "RESET";
 }
 
 export interface CreateUserRequest {

@@ -32,8 +32,9 @@ public class AuditCycleController {
     @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('AUDITOR')")
     public ResponseEntity<List<AuditCycleResponse>> findAll(
             @RequestParam(required = false) CycleStatus status,
-            @RequestParam(required = false) UUID auditClientId) {
-        return ResponseEntity.ok(auditCycleService.findAll(status, auditClientId));
+            @RequestParam(required = false) UUID auditClientId,
+            @RequestParam(defaultValue = "false") boolean mine) {
+        return ResponseEntity.ok(auditCycleService.findAll(status, auditClientId, mine));
     }
 
     @GetMapping("/{id}")

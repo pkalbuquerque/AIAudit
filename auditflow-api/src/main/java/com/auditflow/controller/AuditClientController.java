@@ -33,8 +33,9 @@ public class AuditClientController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('AUDITOR')")
-    public ResponseEntity<List<AuditClientResponse>> findAll() {
-        return ResponseEntity.ok(auditClientService.findAll());
+    public ResponseEntity<List<AuditClientResponse>> findAll(
+            @RequestParam(defaultValue = "false") boolean mine) {
+        return ResponseEntity.ok(auditClientService.findAll(mine));
     }
 
     @GetMapping("/{id}")

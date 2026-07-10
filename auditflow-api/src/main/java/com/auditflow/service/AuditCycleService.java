@@ -61,13 +61,16 @@ public class AuditCycleService {
         return toResponse(cycle);
     }
 
-    public List<AuditCycleResponse> findAll(CycleStatus status, UUID auditClientId) {
+    /**
+     * Lista ciclos do escritório (modelo colaborativo: todos os auditores veem tudo do tenant).
+     * {@code mine=true} filtra opcionalmente para os ciclos do usuário atual.
+     */
+    public List<AuditCycleResponse> findAll(CycleStatus status, UUID auditClientId, boolean mine) {
         UUID tenantId = TenantContext.getTenantId();
-        var currentUser = SecurityUtils.getCurrentUser();
         List<AuditCycle> cycles;
 
-        if (currentUser.getPerfil() == Perfil.AUDITOR) {
-            UUID auditorId = currentUser.getId();
+        if (mine) {
+            UUID auditorId = SecurityUtils.getCurrentUser().getId();
             if (status != null) {
                 cycles = auditCycleRepository.findAllByTenantIdAndAuditorIdAndStatusAndDeletedAtIsNull(tenantId, auditorId, status);
             } else {

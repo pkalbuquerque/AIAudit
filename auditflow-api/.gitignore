@@ -35,3 +35,6 @@ build/
 ### Variáveis de ambiente — NUNCA commitar ###
 .env
 *.env
+
+### Uploads locais (storage.provider=local) — runtime, não versionar ###
+uploads/

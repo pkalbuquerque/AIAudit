@@ -26,6 +26,7 @@ public class AuditClientResponse {
     private Long ciclosAtivos;
     private LocalDateTime criadoEm;
 
-    // Apenas retornado na criação — senha gerada automaticamente para o usuário CLIENTE
-    private String senhaProvisoria;
+    // Apenas retornado na criação — link de ativação do usuário CLIENTE (enviado por e-mail;
+    // devolvido aqui como contingência para o auditor repassar caso o e-mail não chegue).
+    private String linkAtivacao;
 }
