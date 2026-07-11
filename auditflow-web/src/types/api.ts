@@ -157,6 +157,14 @@ export interface ClientDocumentResponse {
   enviadoEm: string;
 }
 
+export interface PageResponse<T> {
+  content: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
 export interface AuditLogResponse {
   id: string;
   acao: string;
