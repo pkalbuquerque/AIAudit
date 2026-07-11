@@ -21,12 +21,13 @@ public class JwtService {
     @Value("${jwt.expiration-hours:24}")
     private long expirationHours;
 
-    public String generateToken(String email, UUID tenantId, String perfil, UUID userId) {
+    public String generateToken(String email, UUID tenantId, String perfil, UUID userId, int tokenVersion) {
         return JWT.create()
                 .withSubject(email)
                 .withClaim("tenantId", tenantId.toString())
                 .withClaim("perfil", perfil)
                 .withClaim("userId", userId.toString())
+                .withClaim("tokenVersion", tokenVersion)
                 .withIssuedAt(Instant.now())
                 .withExpiresAt(Instant.now().plus(expirationHours, ChronoUnit.HOURS))
                 .sign(Algorithm.HMAC256(secret));
@@ -56,5 +57,11 @@ public class JwtService {
 
     public UUID extractUserId(String token) {
         return UUID.fromString(validateToken(token).getClaim("userId").asString());
+    }
+
+    /** tokenVersion embutida no JWT (0 para tokens emitidos antes da introdução do claim). */
+    public int extractTokenVersion(String token) {
+        Integer v = validateToken(token).getClaim("tokenVersion").asInt();
+        return v != null ? v : 0;
     }
 }

@@ -23,6 +23,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -41,6 +42,7 @@ class AuthServiceTest {
     @Mock private JwtService jwtService;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private AuditLogService auditLogService;
+    @Mock private PasswordTokenService passwordTokenService;
 
     private AuthService service;
     private User user;
@@ -48,10 +50,10 @@ class AuthServiceTest {
     @BeforeEach
     void setUp() {
         service = new AuthService(tenantRepository, userRepository, jwtService,
-                passwordEncoder, auditLogService);
+                passwordEncoder, auditLogService, passwordTokenService);
         user = User.builder().id(UUID.randomUUID()).tenantId(UUID.randomUUID())
                 .nome("Pedro").email("pedro@t.io").senhaHash("hash")
-                .perfil(Perfil.ADMIN).ativo(true).tentativasLogin(0).build();
+                .perfil(Perfil.ADMIN).ativo(true).emailVerificado(true).tentativasLogin(0).build();
         lenient().when(userRepository.findByEmail("pedro@t.io")).thenReturn(Optional.of(user));
         lenient().when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
     }
@@ -67,7 +69,7 @@ class AuthServiceTest {
     void loginValidoEmiteTokenEResetaTentativas() {
         user.setTentativasLogin(3);
         when(passwordEncoder.matches("certa", "hash")).thenReturn(true);
-        when(jwtService.generateToken(anyString(), any(), anyString(), any())).thenReturn("jwt-token");
+        when(jwtService.generateToken(anyString(), any(), anyString(), any(), anyInt())).thenReturn("jwt-token");
 
         var resp = service.login(login("pedro@t.io", "certa"));
 
@@ -116,8 +118,19 @@ class AuthServiceTest {
                 .isInstanceOf(UnauthorizedException.class)
                 .hasMessage("Conta desativada");
         // não emite token nem registra login
-        verify(jwtService, never()).generateToken(anyString(), any(), anyString(), any());
+        verify(jwtService, never()).generateToken(anyString(), any(), anyString(), any(), anyInt());
         verify(auditLogService, never()).record(any(), any(), anyString(), anyString(), anyString(), any());
+    }
+
+    @Test
+    void emailNaoVerificadoNaoLoga() {
+        user.setEmailVerificado(false);
+        when(passwordEncoder.matches("certa", "hash")).thenReturn(true);
+
+        assertThatThrownBy(() -> service.login(login("pedro@t.io", "certa")))
+                .isInstanceOf(UnauthorizedException.class)
+                .hasMessageContaining("não confirmado");
+        verify(jwtService, never()).generateToken(anyString(), any(), anyString(), any(), anyInt());
     }
 
     @Test

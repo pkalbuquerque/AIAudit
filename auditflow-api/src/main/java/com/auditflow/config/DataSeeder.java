@@ -124,6 +124,7 @@ public class DataSeeder implements CommandLineRunner {
                 .senhaHash(passwordEncoder.encode(SENHA_DEMO))
                 .perfil(perfil)
                 .ativo(true)
+                .emailVerificado(true)
                 .senhaProvisoria(false)
                 .build());
     }

@@ -53,6 +53,8 @@ public class SecurityConfig {
                                 "/api/auth/forgot-password",
                                 "/api/auth/reset-password",
                                 "/api/auth/token-info",
+                                "/api/auth/verify-email",
+                                "/api/auth/resend-verification",
                                 "/actuator/health",
                                 "/actuator/health/**",
                                 // Documentação da API (springdoc é desativado no profile prod)

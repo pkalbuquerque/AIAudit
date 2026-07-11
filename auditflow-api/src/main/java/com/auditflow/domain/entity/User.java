@@ -48,6 +48,16 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private boolean ativo = true;
 
+    /** E-mail confirmado (via link de verificação no registro, ou pela ativação de convite). */
+    @Builder.Default
+    @Column(name = "email_verificado", nullable = false)
+    private boolean emailVerificado = false;
+
+    /** Incrementado para invalidar todos os JWTs anteriores do usuário (revogação/logout global). */
+    @Builder.Default
+    @Column(name = "token_version", nullable = false)
+    private int tokenVersion = 0;
+
     @Column(name = "senha_provisoria", nullable = false)
     private boolean senhaProvisoria;
 

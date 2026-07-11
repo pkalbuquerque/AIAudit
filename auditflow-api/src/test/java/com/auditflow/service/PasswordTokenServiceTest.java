@@ -149,6 +149,30 @@ class PasswordTokenServiceTest {
     }
 
     @Test
+    void verifyEmailConfirmaEConsomeOToken() {
+        PasswordToken token = tokenValido();
+        token.setTipo(TokenType.EMAIL_VERIFICATION);
+        when(tokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(token));
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.verifyEmail("token-cru");
+
+        assertThat(user.isEmailVerificado()).isTrue();
+        assertThat(token.getUsadoEm()).isNotNull();
+    }
+
+    @Test
+    void verifyEmailRecusaTokenDeOutroTipo() {
+        PasswordToken token = tokenValido(); // ACTIVATION, não EMAIL_VERIFICATION
+        when(tokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(token));
+
+        assertThatThrownBy(() -> service.verifyEmail("token-cru"))
+                .isInstanceOf(UnauthorizedException.class);
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
     void tokenInfoDeTokenDesconhecidoRetornaInvalido() {
         when(tokenRepository.findByTokenHash(anyString())).thenReturn(Optional.empty());
 

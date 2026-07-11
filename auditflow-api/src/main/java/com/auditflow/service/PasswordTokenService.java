@@ -76,6 +76,47 @@ public class PasswordTokenService {
         }, () -> log.info("Solicitação de redefinição para e-mail inexistente: {} (silencioso)", email));
     }
 
+    /**
+     * Verificação de e-mail no registro: cria o token e envia o link de confirmação.
+     * Devolve o link (contingência/log). Não altera senha nem sessão.
+     */
+    @Transactional
+    public String issueEmailVerification(User user) {
+        String rawToken = createToken(user, TokenType.EMAIL_VERIFICATION,
+                LocalDateTime.now().plusHours(activationHours));
+        String link = buildLink("/verificar-email", rawToken);
+        notificationService.verificacaoEmail(user.getEmail(), user.getNome(), link);
+        log.info("Token de verificação de e-mail emitido para {}", user.getEmail());
+        return link;
+    }
+
+    /** Reenvio da verificação. Silencioso: só reenvia se o e-mail existir e ainda não estiver confirmado. */
+    @Transactional
+    public void resendEmailVerification(String email) {
+        userRepository.findByEmail(email)
+                .filter(u -> !u.isEmailVerificado())
+                .ifPresent(this::issueEmailVerification);
+    }
+
+    /** Confirma o e-mail a partir de um token de verificação e o consome. */
+    @Transactional
+    public void verifyEmail(String rawToken) {
+        PasswordToken token = tokenRepository.findByTokenHash(hash(rawToken))
+                .filter(PasswordToken::isUtilizavel)
+                .filter(t -> t.getTipo() == TokenType.EMAIL_VERIFICATION)
+                .orElseThrow(() -> new UnauthorizedException(
+                        "Link de verificação inválido ou expirado. Solicite um novo."));
+
+        User user = userRepository.findById(token.getUserId())
+                .orElseThrow(() -> new UnauthorizedException(
+                        "Link de verificação inválido ou expirado. Solicite um novo."));
+
+        user.setEmailVerificado(true);
+        userRepository.save(user);
+        token.setUsadoEm(LocalDateTime.now());
+        log.info("E-mail confirmado: {}", user.getEmail());
+    }
+
     /** Contexto do token para a tela de definir senha. Nunca lança — retorna {valido=false} se inválido. */
     @Transactional(readOnly = true)
     public TokenInfoResponse tokenInfo(String rawToken) {
@@ -111,6 +152,12 @@ public class PasswordTokenService {
         user.setAtivo(true);
         user.setTentativasLogin(0);
         user.setBloqueadoAte(null);
+        // Definir a senha invalida quaisquer sessões/tokens JWT anteriores do usuário.
+        user.setTokenVersion(user.getTokenVersion() + 1);
+        // Ativar o convite prova o controle do e-mail — confirma a verificação.
+        if (token.getTipo() == TokenType.ACTIVATION) {
+            user.setEmailVerificado(true);
+        }
         userRepository.save(user);
 
         // Consome este token e invalida quaisquer outros pendentes do mesmo usuário.
@@ -136,8 +183,12 @@ public class PasswordTokenService {
     }
 
     private String buildLink(String rawToken) {
+        return buildLink("/definir-senha", rawToken);
+    }
+
+    private String buildLink(String path, String rawToken) {
         String base = webUrl.endsWith("/") ? webUrl.substring(0, webUrl.length() - 1) : webUrl;
-        return base + "/definir-senha?token=" + rawToken;
+        return base + path + "?token=" + rawToken;
     }
 
     private String hash(String rawToken) {

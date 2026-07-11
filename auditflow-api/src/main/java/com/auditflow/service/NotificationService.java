@@ -99,6 +99,18 @@ public class NotificationService {
         deliver(destinoEmail, "Redefinição de senha — AuditFlow", html);
     }
 
+    /**
+     * Confirmação de e-mail no registro de um novo escritório.
+     * E-mail essencial — sempre tenta enviar, independente de app.notifications-enabled.
+     */
+    @Async
+    public void verificacaoEmail(String destinoEmail, String destinoNome, String linkVerificacao) {
+        String corpo = "Para ativar o acesso do seu escritório ao AuditFlow, confirme o seu e-mail"
+                + " clicando no botão abaixo. Se não foi você quem se cadastrou, ignore esta mensagem.";
+        String html = wrapCta(destinoNome, "Confirme seu e-mail", corpo, "Confirmar e-mail", linkVerificacao);
+        deliver(destinoEmail, "Confirme seu e-mail — AuditFlow", html);
+    }
+
     /** Envio de teste manual (bypassa app.notifications-enabled). Retorna mensagem do resultado. */
     public String sendTest(String to) {
         String html = wrap("teste", "E-mail de teste do AuditFlow",

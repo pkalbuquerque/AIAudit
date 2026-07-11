@@ -44,6 +44,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
             String email = decoded.getSubject();
             UUID tenantId = UUID.fromString(decoded.getClaim("tenantId").asString());
+            Integer tokenVersion = decoded.getClaim("tokenVersion").asInt();
 
             TenantContext.setTenantId(tenantId);
 
@@ -54,6 +55,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     log.warn("Token válido mas usuário não encontrado no banco: {} | tenantId: {}", email, tenantId);
                 } else if (!user.isAtivo()) {
                     log.warn("Token válido mas conta desativada: {} | tenantId: {}", email, tenantId);
+                } else if (tokenVersion == null || tokenVersion != user.getTokenVersion()) {
+                    log.warn("Token revogado (tokenVersion divergente): {} | tenantId: {}", email, tenantId);
                 } else {
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());

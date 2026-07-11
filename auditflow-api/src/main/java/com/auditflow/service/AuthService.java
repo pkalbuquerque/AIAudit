@@ -19,8 +19,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -32,6 +35,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final AuditLogService auditLogService;
+    private final PasswordTokenService passwordTokenService;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -46,6 +50,7 @@ public class AuthService {
                 .build();
         tenant = tenantRepository.save(tenant);
 
+        // emailVerificado=false: a conta só pode logar após confirmar o e-mail pelo link.
         User admin = User.builder()
                 .tenantId(tenant.getId())
                 .nome(request.getNomeAdmin())
@@ -55,19 +60,26 @@ public class AuthService {
                 .build();
         admin = userRepository.save(admin);
 
-        log.info("Novo tenant registrado: {} | admin: {}", tenant.getNome(), admin.getEmail());
-        auditLogService.record(tenant.getId(), admin.getId(), "REGISTRO",
-                "Firma " + tenant.getNome() + " registrada", "Tenant", tenant.getId());
+        log.info("Novo tenant registrado: {} | admin: {} (aguardando verificação de e-mail)",
+                tenant.getNome(), admin.getEmail());
 
-        String token = jwtService.generateToken(
-                admin.getEmail(),
-                admin.getTenantId(),
-                admin.getPerfil().name(),
-                admin.getId()
-        );
+        // O log de auditoria referencia o tenant recém-criado; como record() roda em transação
+        // própria (REQUIRES_NEW), só pode ser gravado APÓS o commit desta — senão a FK falha.
+        final UUID tenantId = tenant.getId();
+        final UUID adminId = admin.getId();
+        final String tenantNome = tenant.getNome();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                auditLogService.record(tenantId, adminId, "REGISTRO",
+                        "Firma " + tenantNome + " registrada", "Tenant", tenantId);
+            }
+        });
 
+        passwordTokenService.issueEmailVerification(admin);
+
+        // Sem auto-login: nenhum token é emitido até o e-mail ser confirmado.
         return AuthResponse.builder()
-                .token(token)
                 .usuario(toUserResponse(admin))
                 .build();
     }
@@ -104,6 +116,11 @@ public class AuthService {
             throw new UnauthorizedException("Conta desativada");
         }
 
+        if (!user.isEmailVerificado()) {
+            log.warn("Tentativa de login com e-mail não confirmado: {}", user.getEmail());
+            throw new UnauthorizedException("E-mail não confirmado. Verifique sua caixa de entrada.");
+        }
+
         user.setTentativasLogin(0);
         user.setBloqueadoAte(null);
         userRepository.save(user);
@@ -111,22 +128,16 @@ public class AuthService {
         log.info("Login bem-sucedido: {} | perfil: {}", user.getEmail(), user.getPerfil());
         auditLogService.record(user.getTenantId(), user.getId(), "LOGIN", "Login realizado", "User", user.getId());
 
-        String token = jwtService.generateToken(
-                user.getEmail(),
-                user.getTenantId(),
-                user.getPerfil().name(),
-                user.getId()
-        );
-
         return AuthResponse.builder()
-                .token(token)
+                .token(tokenFor(user))
                 .senhaProvisoria(user.isSenhaProvisoria())
                 .usuario(toUserResponse(user))
                 .build();
     }
 
+    /** Altera a própria senha e revoga as demais sessões; devolve um token novo para a sessão atual. */
     @Transactional
-    public void changePassword(ChangePasswordRequest request) {
+    public AuthResponse changePassword(ChangePasswordRequest request) {
         User user = SecurityUtils.getCurrentUser();
 
         if (!passwordEncoder.matches(request.getSenhaAtual(), user.getSenhaHash())) {
@@ -137,9 +148,36 @@ public class AuthService {
         user.setSenhaProvisoria(false);
         user.setTentativasLogin(0);
         user.setBloqueadoAte(null);
+        user.setTokenVersion(user.getTokenVersion() + 1); // invalida tokens antigos (outras sessões)
         userRepository.save(user);
 
         log.info("Senha alterada com sucesso: {}", user.getEmail());
+        return AuthResponse.builder()
+                .token(tokenFor(user))
+                .usuario(toUserResponse(user))
+                .build();
+    }
+
+    /** "Sair de todos os dispositivos": revoga todos os tokens e reemite um para a sessão atual. */
+    @Transactional
+    public AuthResponse logoutAllDevices() {
+        User user = SecurityUtils.getCurrentUser();
+        user.setTokenVersion(user.getTokenVersion() + 1);
+        userRepository.save(user);
+        log.info("Tokens revogados (logout global): {}", user.getEmail());
+        return AuthResponse.builder()
+                .token(tokenFor(user))
+                .usuario(toUserResponse(user))
+                .build();
+    }
+
+    private String tokenFor(User user) {
+        return jwtService.generateToken(
+                user.getEmail(),
+                user.getTenantId(),
+                user.getPerfil().name(),
+                user.getId(),
+                user.getTokenVersion());
     }
 
     private UserResponse toUserResponse(User user) {
