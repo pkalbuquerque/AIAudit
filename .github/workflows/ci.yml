@@ -36,7 +36,10 @@ jobs:
           node-version: "20"
           cache: npm
           cache-dependency-path: auditflow-web/package-lock.json
+      # npm install (não npm ci): o lock é gerado em Windows e algumas deps opcionais
+      # wasm (@emnapi/*, via resolver de ESLint) resolvem versões diferentes no Linux,
+      # o que faz o npm ci (estrito) falhar. O tsc não usa esses bindings.
       - name: Instalar dependências
-        run: npm ci
+        run: npm install --no-audit --no-fund
       - name: Typecheck
         run: npx tsc --noEmit
